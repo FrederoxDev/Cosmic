@@ -1,0 +1,17 @@
+{
+  "name": "coslang",
+  "version": "1.0.0",
+  "main": "lexer.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "shell": "node ./shell.js",
+    "test": "node ./tests.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "description": ""
+}
