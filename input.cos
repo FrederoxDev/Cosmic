@@ -1,1 +1,23 @@
-10 / 0;
+let w = 32;
+let h = 32;
+
+struct Rectangle {
+    width: number,
+    height: number,
+}
+
+impl Rectangle {
+    fn area() {
+        log(self.width * self.height);
+    }
+
+    fn perimeter() {
+        log(self.width * 2 + self.height * 2);
+    }
+}
+
+let rect = Rectangle { width: w, height: h };
+
+log(rect);
+rect.area();
+rect.perimeter();

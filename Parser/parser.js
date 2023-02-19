@@ -8,17 +8,21 @@ export class Parser {
     const token = _token ?? this.tokens.shift()
     if (token.value == symbol) return;
 
-    const lineStart = this.code.lastIndexOf("\n", token.start) + 1;
-    const line = this.code.substring(lineStart, token.end);
-    const lineNum = this.code.substring(0, token.start).split("\n").length;
-    const colNum = token.start - lineStart + 1;
+    this.parseError(`Expected symbol '${symbol}' instead got '${token.value}`, token.start, token.end)
+  }
 
-    const err = new Error(`Expected symbol '${symbol}' instead got '${token.value}', at line ${lineNum}, column ${colNum}'`)
+  parseError = (message, startIdx, endIdx) => {
+    const lineStart = this.code.lastIndexOf("\n", startIdx) + 1;
+    const line = this.code.substring(lineStart, endIdx);
+    const lineNum = this.code.substring(0, startIdx).split("\n").length;
+    const colNum = startIdx - lineStart + 1;
+
+    const err = new Error(`${message}, at line ${lineNum}, column ${colNum}'`)
     err.stack = ""
     err.name = "Parser"
 
     console.log(line);
-    console.log(`${" ".repeat(token.start - lineStart)}${"^".repeat(token.end - token.start)}`);
+    console.log(`${" ".repeat(startIdx - lineStart)}${"^".repeat(endIdx - startIdx)}`);
     throw err;
   }
 
@@ -52,7 +56,7 @@ export class Parser {
 
   statement = (_token) => {
     const token = _token ?? this.tokens.shift()
-    if (["if", "fn"].includes(token.value)) return this.compound_stmt(token)
+    if (["if", "fn", "struct", "impl"].includes(token.value)) return this.compound_stmt(token)
     if (["let"].includes(token.value)) {
       let stmt = this.simple_stmt(token)
       this.expectSymbol(null, ";")
@@ -68,6 +72,67 @@ export class Parser {
     const token = _token ?? this.tokens.shift()
     if (token.value == "if") return this.if_stmt(token)
     else if (token.value == "fn") return this.func_def(token)
+    else if (token.value == "struct") return this.struct_stmt(token)
+    else if (token.value == "impl") return this.impl_stmt(token)
+  }
+
+  struct_stmt = (_token) => {
+    const structKeyword = _token ?? this.tokens.shift()
+    const start = structKeyword.start;
+    const identifier = this.tokens.shift()
+
+    this.expectSymbol(null, "{")
+    const fields = []
+
+    while (this.tokens[0].value != "}") {
+      const name = this.tokens.shift()
+      this.expectSymbol(null, ":")
+      const type = this.tokens.shift()
+      fields.push([name, type])
+
+      if (this.tokens[0].value == "}") break;
+      // Optional comma at last field
+      if (this.tokens[1].value == "}") {
+        this.expectSymbol(null, ",")
+      }
+      else this.expectSymbol(null, ",")
+    }
+
+    var closing = this.tokens.shift()
+    this.expectSymbol(closing, "}")
+
+    return {
+      type: "StructDeclaration",
+      id: identifier,
+      fields,
+      start,
+      end: closing.end
+    }
+  }
+
+  impl_stmt = (_token) => {
+    const implKeyword = _token ?? this.tokens.shift()
+    const start = implKeyword.start;
+    const structId = this.tokens.shift()
+
+    this.expectSymbol(null, "{")
+
+    var functions = []
+
+    while(this.tokens[0].value != "}") {
+      functions.push(this.func_def())
+    }
+
+    const closing = this.tokens.shift()
+    this.expectSymbol(closing, "}")
+
+    return {
+      type: "StructImpl",
+      structId,
+      start,
+      functions,
+      end: closing.end
+    }
   }
 
   if_stmt = (_token) => {
@@ -261,7 +326,7 @@ export class Parser {
   primary = (_token) => {
     let left = this.atom(_token ?? this.tokens.shift());
 
-    while ([".", "("].includes(this.tokens[0]?.value)) {
+    while ([".", "(", "{"].includes(this.tokens[0]?.value)) {
       let op = this.tokens.shift()
 
       if (op.value == ".") {
@@ -273,7 +338,7 @@ export class Parser {
         }
       }
 
-      else {
+      else if (op.value == "(") {
         var params = this.params()
         var closing = this.tokens.shift()
         if (closing.value != ")") throw new Error("Expected ')'")
@@ -285,6 +350,32 @@ export class Parser {
         }
 
       }
+
+      else if (op.value == "{") {
+        const fields = []
+
+        while (this.tokens[0].value != "}") {
+          const name = this.tokens.shift()
+          this.expectSymbol(null, ":")
+          const value = this.expression()
+          fields.push([name, value])
+
+          if (this.tokens[0].value == "}") break;
+          // Optional comma at last field
+          if (this.tokens[1].value == "}") {
+            this.expectSymbol(null, ",")
+          }
+          else this.expectSymbol(null, ",")
+        }
+
+        this.expectSymbol(null, "}")
+
+        left = {
+          type: "StructExpression",
+          id: left,
+          fields
+        }
+      }
     }
 
     return left
@@ -294,7 +385,8 @@ export class Parser {
     let token = _token ?? this.tokens.shift();
 
     // Literally just ignore
-    if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression"
+    if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression",
+    "StructExpression"
     ].includes(token.type)) return token;
 
     if (token.type == "numberLiteral") return { type: "Number", value: parseFloat(token.value) }
@@ -310,6 +402,6 @@ export class Parser {
       return expr
     };
 
-    throw new Error(`Atom expected one of [numberLiteral, stringLiteral, BooleanLiteral, identifier] instead got ${token.type}: ${token.value}`);
+    this.parseError(`Expected type of [numberLiteral, stringLiteral, BooleanLiteral, identifier] instead got (type: '${token.type}', value: '${token.value}')`, token.start, token.end)
   }
 }  

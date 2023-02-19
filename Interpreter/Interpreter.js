@@ -1,12 +1,13 @@
-import { Boolean, Function, Number, String, NativeFunction } from "./Primitives/index.js"
+import { Boolean, Function, Number, String, NativeFunction, Struct, StructInstance } from "./Primitives/index.js"
 import { Context } from "./Context.js";
 
 export class Interpreter {
     constructor(ast) {
+        this.currentSelf = undefined;
         this.ast = ast;
         this.globals = new Context()
         this.globals.variables["log"] = new NativeFunction("log", (args => {
-            var out = args.map(arg => arg.inspect())
+            var out = args.map(arg => arg?.inspect())
             console.log("\x1b[90m>\x1b[37m", ...out)
         }))
     }
@@ -41,13 +42,63 @@ export class Interpreter {
             { type: "IfStatement", func: this.ifStatement },
             { type: "FunctionDeclaration", func: this.functionDeclaration },
             { type: "CallExpression", func: this.callExpression },
-            { type: "VariableDeclaration", func: this.variableDeclaration }
+            { type: "VariableDeclaration", func: this.variableDeclaration },
+            { type: "StructDeclaration", func: this.structDeclaration },
+            { type: "StructExpression", func: this.structExpression },
+            { type: "StructImpl", func: this.structImpl },
+            { type: "MemberExpression", func: this.memberExpression }
         ]
         
         const type = types.find(type => type.type == node.type)
         if (type == undefined) throw new Error(`traverse function does not exist for ${node.type}`)
 
         return type.func.bind(this)(node, ctx)
+    }
+
+    memberExpression = (node, ctx) => {
+        const object = node.object.value === "self" ? this.currentSelf : this.traverseExpr(node.object, ctx)
+        const objCtx = object.selfCtx;
+
+        const property = this.traverseExpr(node.property, objCtx)
+        this.currentSelf = object
+        return property
+    }
+
+    structDeclaration = (node, ctx) => {
+        ctx.variables[node.id.value] = new Struct(node.id.value, node.fields)
+    }
+
+    structExpression = (node, ctx) => {
+        const structBase = this.traverseIdentifier(node.id, ctx)
+        const structCtx = new Context(this.globals)
+
+        structBase.fields.forEach(field => {
+            const name = field[0].value;
+            const expectedType = field[1].value;
+
+            const match = node.fields.find(field => field[0].value == name)
+            if (match == undefined) throw new Error("Missing Field")
+
+            const value = this.traverseExpr(match[1], ctx)
+            // TODO: CHECK TYPE MATCH
+
+            structCtx.variables[name] = value
+        })
+
+        structBase.implements.forEach(func => {
+            this.functionDeclaration(func, structCtx)
+        })
+
+        return new StructInstance(structBase, structCtx)
+    }
+
+    structImpl = (node, ctx) => {
+        var structBase = this.traverseIdentifier(node.structId, ctx)
+        node.functions.forEach(func => {
+            structBase.implement(func);
+        })
+
+        ctx.variables[node.structId] = structBase;
     }
 
     functionDeclaration = (node, ctx) => {

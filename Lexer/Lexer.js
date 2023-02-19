@@ -1,14 +1,16 @@
 const stringLiteralRegex = /"([^"\\]|\\.)*"/;
 const numberLiteralRegex = /-?\d+(\.\d+)?/;
 const BooleanLiteralRegex = /(true|false)/;
-const identifierRegex = /[a-zA-Z_]\w*/;
+const identifierRegex = /[a-zA-Z_0-9]\w*/;
 const whitespaceRegex = /\s+/;
 const binaryAssignOpRegex = /(\+=|-=|\*=|\/=|%=)/;
-const symbolRegex = /(::|->|#|\[|\]|\(|\)|\{|\}|,|;|=|\.)/;
+const symbolRegex = /(::|->|#|\[|\]|\(|\)|\{|\}|,|;|=|\.|:|&)/;
 const binaryOpRegex = /(\*\*|\+|\-|\*|\/|%|==|<=|<|>=|>|!=|&&|\|\|)/
 const unaryOpRegex = /(!)/
+const multiLineComment = /\/\*.*\*\//s
 
 const tokenTypes = [
+  { type: 'multiLineComment', regex: multiLineComment },
   { type: 'whitespace', regex: whitespaceRegex },
   { type: 'BooleanLiteral', regex: BooleanLiteralRegex },
   { type: 'numberLiteral', regex: numberLiteralRegex },
@@ -35,7 +37,7 @@ export const Tokenize = (input) => {
         const start = position;
         const end = start + match[0].length;
 
-        if (tokenType.type !== "whitespace") {
+        if (!["whitespace", "multiLineComment"].includes(tokenType.type)) {
           tokens.push({
             type: tokenType.type,
             value: match[0],
