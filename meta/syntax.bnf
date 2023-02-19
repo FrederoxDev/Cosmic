@@ -15,6 +15,10 @@ statement:
 
 simple_stmt:
     | assignment
+    | sum
+
+assignment:
+    NAME "=" expression
 
 compound_stmt:
     | if_stmt
@@ -27,7 +31,21 @@ block:
 if_stmt:
     "if" "(" expression ")" block
 
+func_def:
+    "fn" NAME "(" arguments ")" block
+
 expression:
+    | expression "&&" expression
+    | expression "||" expression
+    | comparison
+
+comparison:
+    | comparison "==" comparison
+    | comparison "!=" comparison
+    | comparison ">" comparison
+    | comparison ">=" comparison
+    | comparison "<" comparison
+    | comparison "<=" comparison
     | sum
 
 sum:

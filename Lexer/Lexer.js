@@ -1,6 +1,6 @@
 const stringLiteralRegex = /"([^"\\]|\\.)*"/;
 const numberLiteralRegex = /-?\d+(\.\d+)?/;
-const booleanLiteralRegex = /(true|false)/;
+const BooleanLiteralRegex = /(true|false)/;
 const identifierRegex = /[a-zA-Z_]\w*/;
 const whitespaceRegex = /\s+/;
 const binaryAssignOpRegex = /(\+=|-=|\*=|\/=|%=)/;
@@ -10,7 +10,7 @@ const unaryOpRegex = /(!)/
 
 const tokenTypes = [
   { type: 'whitespace', regex: whitespaceRegex },
-  { type: 'booleanLiteral', regex: booleanLiteralRegex },
+  { type: 'BooleanLiteral', regex: BooleanLiteralRegex },
   { type: 'numberLiteral', regex: numberLiteralRegex },
   { type: 'stringLiteral', regex: stringLiteralRegex },
   { type: 'binaryAssignOpSymbol', regex: binaryAssignOpRegex },

@@ -1,5 +1,6 @@
 import { Boolean } from "./Boolean.js";
 import { PrimitiveType } from "./PrimitiveType.js";
+import { String } from "./String.js";
 
 export class Number extends PrimitiveType {
     constructor(value) {
@@ -13,7 +14,11 @@ export class Number extends PrimitiveType {
     }
 
     toString() {
-        return `${this.value}`
+        return new String(`${this.value}`)
+    }
+
+    inspect() {
+        return this.value
     }
 
     Add(other) {

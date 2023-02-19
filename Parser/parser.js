@@ -27,6 +27,11 @@ export class Parser {
   statement = (_token) => {
     const token = _token ?? this.tokens.shift()
     if (["if", "fn"].includes(token.value)) return this.compound_stmt(token)
+    if (["let"].includes(token.value)) {
+      let stmt = this.simple_stmt(token)
+      this.expectSymbol(null, ";")
+      return stmt
+    }
 
     const expr = this.expression(token)
     this.expectSymbol(null, ";")
@@ -49,7 +54,7 @@ export class Parser {
     return {
       type: "IfStatement",
       test,
-      consequent
+      consequent: consequent.body
     }
   }
   
@@ -57,7 +62,7 @@ export class Parser {
     const fnKeyword = _token ?? this.tokens.shift();
     const identifier = this.tokens.shift()
     this.expectSymbol(null, "(")
-    // ... get params
+    // ...params
     this.expectSymbol(null, ")")
     const block = this.block()
 
@@ -65,7 +70,44 @@ export class Parser {
       type: "FunctionDeclaration",
       id: identifier,
       params: [],
-      body: block
+      body: block.body
+    }
+  }
+
+  params = (_token) => {
+    var parameters = []
+
+    // No params passed
+    if (this.tokens[0].value == ")") return []
+    parameters.push(this.expression())
+
+    while (this.tokens[0].value == ",") {
+      this.tokens.shift()
+      parameters.push(this.expression())
+    }
+
+    return parameters
+  }
+
+  simple_stmt = (_token) => {
+    const token = _token ?? this.tokens.shift()
+    if (token.value == "let") return this.variableDeclaration(token) 
+  }
+
+  variableDeclaration = (_token) => {
+    const letToken = _token ?? this.tokens.shift()
+    const identifier = this.tokens.shift();
+    let init = undefined;
+
+    if (this.tokens[0].value == "=") {
+      this.tokens.shift()
+      init = this.expression()
+    }
+
+    return {
+      type: "VariableDeclaration",
+      id: identifier,
+      init
     }
   }
 
@@ -204,15 +246,14 @@ export class Parser {
       }
 
       else {
-        // Look for arguments
-        // Closing brace
+        var params = this.params()
         var closing = this.tokens.shift()
         if (closing.value != ")") throw new Error("Expected ')'")
 
         left = {
           type: "CallExpression",
           callee: left,
-          arguments: []
+          arguments: params
         }
 
       }
@@ -230,7 +271,7 @@ export class Parser {
 
     if (token.type == "numberLiteral") return { type: "Number", value: parseFloat(token.value) }
     else if (token.type == "stringLiteral") return { type: "String", value: token.value.substring(1, token.value.length - 1) }
-    else if (token.type == "booleanLiteral") return { type: "Boolean", value: token.value.toLowerCase() == "true" }
+    else if (token.type == "BooleanLiteral") return { type: "Boolean", value: token.value.toLowerCase() == "true" }
     else if (token.type == "identifier") return { type: "Identifier", value: token.value }
 
     // Group
@@ -241,6 +282,6 @@ export class Parser {
       return expr
     };
 
-    throw new Error(`Atom expected one of [numberLiteral, stringLiteral, booleanLiteral, identifier] instead got ${token.type}: ${token.value}`);
+    throw new Error(`Atom expected one of [numberLiteral, stringLiteral, BooleanLiteral, identifier] instead got ${token.type}: ${token.value}`);
   }
 }  

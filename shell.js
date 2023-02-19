@@ -4,11 +4,23 @@ import { Interpreter } from "./Interpreter/Interpreter.js";
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 
 const input = `
-fn main() {
-    12 + 3;
+let name = "Freddie";
+let password = "right";
+
+log(name == "Freddie" && password == "right");
+if (name == "Freddie" && password == "right") {
+    log("Access Granted!");
 }
 
-main();
+log(name != "Freddie");
+if (name != "Freddie") {
+    log("Go away!");
+}
+
+log(name == "Freddie" && password != "right");
+if (name == "Freddie" && password != "right") {
+    log("Wrong Password");
+}
 `
 
 const tokens = Tokenize(input);
@@ -24,18 +36,18 @@ writeFileSync('./err/ast.json', JSON.stringify(ast, null, 2), { flag: "w" });
 writeFileSync('./err/tokens.json', JSON.stringify(tokensCopy, null, 2), { flag: "w" });
 
 try {
+    console.log("Output:")
     const out = new Interpreter(ast).executeFromStart()
     if (out != undefined) {
-        console.log("Output:")
         console.log(">\x1b[90m", out.toString(), "\x1b[37m");
     }
 
-    console.log("Finished running with 0 errors!")
+    console.log("\nFinished running with 0 errors!")
 }
 
 catch (e) {
     console.log("Runtime Errors:")
-    console.log(">\x1b[31m", e.message, "\x1b[37m")
+    console.error(e)
 
     writeFileSync('./err/err_log.txt', e.toString(), { flag: "w" });
 }

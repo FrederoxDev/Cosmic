@@ -17,6 +17,10 @@ export class PrimitiveType {
         return `[PrimitiveType]`
     }
 
+    inspect() {
+        return `[PrimitiveType]`
+    }
+
     /* Arithmetic Operations */
     Add(other) { this.operationNotImpl("Add") }
     Minus(other) { this.operationNotImpl("Minus") }

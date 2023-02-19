@@ -1,4 +1,5 @@
 import { PrimitiveType } from "./PrimitiveType.js";
+import { Boolean } from "./Boolean.js";
 
 export class String extends PrimitiveType {
     constructor(value) {
@@ -7,6 +8,10 @@ export class String extends PrimitiveType {
     }
 
     toString() {
+        return new String(`${this.value}`)
+    }
+
+    inspect() {
         return `"${this.value}"`
     }
 
