@@ -1,16 +1,40 @@
 export class Parser {
-  constructor(tokens) {
+  constructor(tokens, code) {
     this.tokens = tokens
+    this.code = code
   }
 
   expectSymbol = (_token, symbol) => {
     const token = _token ?? this.tokens.shift()
-    if (token.value != symbol) throw new Error(`Expected symbol '${symbol}' instead got '${token.value}'`)
+    if (token.value == symbol) return;
+
+    const lineStart = this.code.lastIndexOf("\n", token.start) + 1;
+    const line = this.code.substring(lineStart, token.end);
+    const lineNum = this.code.substring(0, token.start).split("\n").length;
+    const colNum = token.start - lineStart + 1;
+
+    const err = new Error(`Expected symbol '${symbol}' instead got '${token.value}', at line ${lineNum}, column ${colNum}'`)
+    err.stack = ""
+    err.name = "Parser"
+
+    console.log(line);
+    console.log(`${" ".repeat(token.start - lineStart)}${"^".repeat(token.end - token.start)}`);
+    throw err;
+  }
+
+  parse = () => {
+    try {
+      return [this.statements(), null]
+    }
+    catch (e) {
+      return [null, e]
+    }
   }
 
   statements = () => {
     var statements = []
     var token = this.tokens.shift()
+    const start = token.start
     statements.push(this.statement(token))
     
     while (!["}", "endOfFile"].includes(this.tokens[0].value)) {
@@ -20,7 +44,9 @@ export class Parser {
 
     return {
       type: "BlockStatement",
-      body: statements
+      body: statements,
+      start,
+      end: token.end
     }
   }
 
@@ -121,7 +147,9 @@ export class Parser {
 
       return {
         type: "BlockStatement",
-        body: statements
+        body: statements,
+        start: token.start,
+        end: closing.end
       }
     } 
 

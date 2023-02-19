@@ -1,53 +1,29 @@
 import { Tokenize } from "./Lexer/Lexer.js"
 import { Parser } from "./Parser/parser.js"
 import { Interpreter } from "./Interpreter/Interpreter.js";
-import { existsSync, mkdirSync, writeFileSync } from "fs"
-
-const input = `
-let name = "Freddie";
-let password = "right";
-
-log(name == "Freddie" && password == "right");
-if (name == "Freddie" && password == "right") {
-    log("Access Granted!");
-}
-
-log(name != "Freddie");
-if (name != "Freddie") {
-    log("Go away!");
-}
-
-log(name == "Freddie" && password != "right");
-if (name == "Freddie" && password != "right") {
-    log("Wrong Password");
-}
-`
-
-const tokens = Tokenize(input);
-const tokensCopy = tokens.slice();
-const ast = new Parser(tokens).statements();
-
-console.log("Executing Code:" + "\x1b[90m")
-console.log(input.trim());
-console.log("\x1b[37m")
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
 
 if (!existsSync("./err")) mkdirSync("./err");
+const input = readFileSync("./input.cos", { encoding: 'utf-8' });
+
+/* Lexing */
+const tokens = Tokenize(input);
+writeFileSync('./err/tokens.json', JSON.stringify(tokens, null, 2), { flag: "w" });
+
+/* AST Parsing */
+const [ast, parseError] = new Parser(tokens, input).parse();
+if (parseError) {
+    console.error(parseError);
+    process.exit(1);
+}
 writeFileSync('./err/ast.json', JSON.stringify(ast, null, 2), { flag: "w" });
-writeFileSync('./err/tokens.json', JSON.stringify(tokensCopy, null, 2), { flag: "w" });
 
-try {
-    console.log("Output:")
-    const out = new Interpreter(ast).executeFromStart()
-    if (out != undefined) {
-        console.log(">\x1b[90m", out.toString(), "\x1b[37m");
-    }
-
-    console.log("\nFinished running with 0 errors!")
+/* Interpreting */
+console.log("Output:")
+const [result, runtimeError] = new Interpreter(ast).executeFromStart();
+if (runtimeError) {
+    console.error(runtimeError);
+    process.exit(1);
 }
 
-catch (e) {
-    console.log("Runtime Errors:")
-    console.error(e)
-
-    writeFileSync('./err/err_log.txt', e.toString(), { flag: "w" });
-}
+console.log("\nFinished running with 0 errors!")

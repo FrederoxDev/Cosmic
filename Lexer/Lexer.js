@@ -22,30 +22,44 @@ const tokenTypes = [
 
 export const Tokenize = (input) => {
   const tokens = [];
+  let position = 0;
 
-  while (input.length > 0) {
-    let match;
-  
+  while (position < input.length) {
+    let match = null;
+
     for (const tokenType of tokenTypes) {
       const regex = new RegExp(`^(${tokenType.regex.source})`);
-      match = regex.exec(input);
-  
-      if (match !== null) {
-        if (tokenType.type != "whitespace") tokens.push({
-          type: tokenType.type,
-          value: match[0],
-        });
+      match = regex.exec(input.slice(position));
 
-        input = input.slice(match[0].length);
+      if (match !== null) {
+        const start = position;
+        const end = start + match[0].length;
+
+        if (tokenType.type !== "whitespace") {
+          tokens.push({
+            type: tokenType.type,
+            value: match[0],
+            start,
+            end,
+          });
+        }
+
+        position = end;
         break;
       }
     }
-  
+
     if (match === null) {
-      throw new Error(`Invalid input: ${input}`);
+      throw new Error(`Invalid input: ${input.slice(position)}`);
     }
   }
 
-  tokens.push({ type: "endOfFile", value: "endOfFile" })
+  tokens.push({
+    type: "endOfFile",
+    value: "endOfFile",
+    start: position,
+    end: position,
+  });
+
   return tokens;
-}
+};

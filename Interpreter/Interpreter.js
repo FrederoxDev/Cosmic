@@ -12,10 +12,15 @@ export class Interpreter {
     }
 
     executeFromStart = () => {
-        const ctx = new Context()
-        ctx.parent = this.globals
+        try {
+            const ctx = new Context()
+            ctx.parent = this.globals
+            return [this.traverseExpr(this.ast, ctx), null]
+        }
 
-        return this.traverseExpr(this.ast, ctx)
+        catch(e) {
+            return [null, e]
+        }
     }
 
     /**

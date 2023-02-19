@@ -12,7 +12,7 @@ export class String extends PrimitiveType {
     }
 
     inspect() {
-        return `"${this.value}"`
+        return `${this.value}`
     }
 
     Add(other) {
