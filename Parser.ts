@@ -1,17 +1,23 @@
+type LexerToken = { type: string; value: string; start: number; end: number; };
+type FuncArg = { id: string; type: string; };
+
 export class Parser {
-  constructor(tokens, code) {
+  tokens: LexerToken[]
+  code: string
+
+  constructor(tokens: LexerToken[], code: string) {
     this.tokens = tokens
     this.code = code
   }
 
-  expectSymbol = (_token, symbol) => {
-    const token = _token ?? this.tokens.shift()
+  expectSymbol = (_token: LexerToken | null, symbol: string): void => {
+    const token = _token ?? this.tokens.shift()!;
     if (token.value == symbol) return;
 
     this.parseError(`Expected symbol '${symbol}' instead got '${token.value}`, token.start, token.end)
   }
 
-  parseError = (message, startIdx, endIdx) => {
+  parseError = (message: string, startIdx: number, endIdx: number): Error => {
     const lineStart = this.code.lastIndexOf("\n", startIdx) + 1;
     const line = this.code.substring(lineStart, endIdx);
     const lineNum = this.code.substring(0, startIdx).split("\n").length;
@@ -26,7 +32,7 @@ export class Parser {
     throw err;
   }
 
-  parse = () => {
+  parse = (): any => {
     try {
       return [this.statements(), null]
     }
@@ -35,14 +41,15 @@ export class Parser {
     }
   }
 
-  statements = () => {
-    var statements = []
-    var token = this.tokens.shift()
+  statements = (): any => {
+    var statements: any[] = []
+    var token = this.tokens.shift()!;
     const start = token.start
+
     statements.push(this.statement(token))
     
     while (!["}", "endOfFile"].includes(this.tokens[0].value)) {
-      var token = this.tokens.shift()
+      var token = this.tokens.shift()!;
       statements.push(this.statement(token))
     }
 
@@ -54,10 +61,11 @@ export class Parser {
     }
   }
 
-  statement = (_token) => {
-    const token = _token ?? this.tokens.shift()
+  statement = (_token: LexerToken | null): any => {
+    const token = _token ?? this.tokens.shift()!;
+
     if (["if", "fn", "struct", "impl"].includes(token.value)) return this.compound_stmt(token)
-    if (["let"].includes(token.value)) {
+    if (["let", "return"].includes(token.value)) {
       let stmt = this.simple_stmt(token)
       this.expectSymbol(null, ";")
       return stmt
@@ -68,26 +76,27 @@ export class Parser {
     return expr
   }
 
-  compound_stmt = (_token) => {
-    const token = _token ?? this.tokens.shift()
+  compound_stmt = (_token: LexerToken | null): any => {
+    const token = _token ?? this.tokens.shift()!;
+
     if (token.value == "if") return this.if_stmt(token)
     else if (token.value == "fn") return this.func_def(token)
     else if (token.value == "struct") return this.struct_stmt(token)
     else if (token.value == "impl") return this.impl_stmt(token)
   }
 
-  struct_stmt = (_token) => {
-    const structKeyword = _token ?? this.tokens.shift()
+  struct_stmt = (_token: LexerToken | null): any => {
+    const structKeyword = _token ?? this.tokens.shift()!;
     const start = structKeyword.start;
     const identifier = this.tokens.shift()
 
     this.expectSymbol(null, "{")
-    const fields = []
+    const fields: LexerToken[][] = []
 
     while (this.tokens[0].value != "}") {
-      const name = this.tokens.shift()
+      const name = this.tokens.shift()!
       this.expectSymbol(null, ":")
-      const type = this.tokens.shift()
+      const type = this.tokens.shift()!
       fields.push([name, type])
 
       if (this.tokens[0].value == "}") break;
@@ -98,7 +107,7 @@ export class Parser {
       else this.expectSymbol(null, ",")
     }
 
-    var closing = this.tokens.shift()
+    var closing = this.tokens.shift()!;
     this.expectSymbol(closing, "}")
 
     return {
@@ -110,20 +119,20 @@ export class Parser {
     }
   }
 
-  impl_stmt = (_token) => {
-    const implKeyword = _token ?? this.tokens.shift()
+  impl_stmt = (_token: LexerToken | null): any => {
+    const implKeyword = _token ?? this.tokens.shift()!;
     const start = implKeyword.start;
     const structId = this.tokens.shift()
 
     this.expectSymbol(null, "{")
 
-    var functions = []
+    var functions: any[] = []
 
     while(this.tokens[0].value != "}") {
-      functions.push(this.func_def())
+      functions.push(this.func_def(null))
     }
 
-    const closing = this.tokens.shift()
+    const closing = this.tokens.shift()!;
     this.expectSymbol(closing, "}")
 
     return {
@@ -135,12 +144,12 @@ export class Parser {
     }
   }
 
-  if_stmt = (_token) => {
-    const ifKeyword = _token ?? this.tokens.shift()
+  if_stmt = (_token: LexerToken | null): any => {
+    const ifKeyword = _token ?? this.tokens.shift()!;
     this.expectSymbol(null, "(")
-    const test = this.expression()
+    const test = this.expression(null)
     this.expectSymbol(null, ")")
-    const consequent = this.block()
+    const consequent = this.block(null)
 
     return {
       type: "IfStatement",
@@ -149,50 +158,96 @@ export class Parser {
     }
   }
   
-  func_def = (_token) => {
-    const fnKeyword = _token ?? this.tokens.shift();
+  func_def = (_token: LexerToken | null): any => {
+    const fnKeyword = _token ?? this.tokens.shift()!;
     const identifier = this.tokens.shift()
     this.expectSymbol(null, "(")
-    // ...params
+    const params = this.func_args(null);
     this.expectSymbol(null, ")")
-    const block = this.block()
+    const block = this.block(null)
 
     return {
       type: "FunctionDeclaration",
       id: identifier,
-      params: [],
+      params,
       body: block.body
     }
   }
 
-  params = (_token) => {
-    var parameters = []
+  func_args = (_token: LexerToken | null): FuncArg[] => {
+    var parameters: FuncArg[] = []
 
     // No params passed
     if (this.tokens[0].value == ")") return []
-    parameters.push(this.expression())
+    
+    var id = this.tokens.shift()!.value
+    this.expectSymbol(null, ":")
+    var type = this.tokens.shift()!.value
+    parameters.push({id, type})
 
     while (this.tokens[0].value == ",") {
       this.tokens.shift()
-      parameters.push(this.expression())
+      var id = this.tokens.shift()!.value
+      this.expectSymbol(null, ":")
+      var type = this.tokens.shift()!.value
+      parameters.push({id, type})
     }
 
     return parameters
   }
 
-  simple_stmt = (_token) => {
-    const token = _token ?? this.tokens.shift()
-    if (token.value == "let") return this.variableDeclaration(token) 
+  params = (_token: LexerToken | null): any => {
+    var parameters: any[] = []
+
+    // No params passed
+    if (this.tokens[0].value == ")") return []
+    parameters.push(this.expression(null))
+
+    while (this.tokens[0].value == ",") {
+      this.tokens.shift()
+      parameters.push(this.expression(null))
+    }
+
+    return parameters
   }
 
-  variableDeclaration = (_token) => {
-    const letToken = _token ?? this.tokens.shift()
+  simple_stmt = (_token: LexerToken | null): any => {
+    const token = _token ?? this.tokens.shift()!;
+    if (token.value == "let") return this.variableDeclaration(token) 
+    else if (token.value == "return") return this.return_stmt(token);
+  }
+
+  return_stmt = (_token: LexerToken | null): any => {
+    const returnKeyword = _token ?? this.tokens.shift()!;
+    if (this.tokens[0].value == ";") {
+      return {
+        type: "ReturnExpression",
+        value: null,
+        start: returnKeyword.start,
+        end: returnKeyword.end
+      }
+    }
+
+    else {
+      const value = this.expression(null);
+
+      return {
+        type: "ReturnExpression",
+        value: value,
+        start: returnKeyword.start,
+        end: value.end
+      }
+    }
+  }
+
+  variableDeclaration = (_token: LexerToken | null): any => {
+    const letToken = _token ?? this.tokens.shift()!;
     const identifier = this.tokens.shift();
     let init = undefined;
 
     if (this.tokens[0].value == "=") {
       this.tokens.shift()
-      init = this.expression()
+      init = this.expression(null)
     }
 
     return {
@@ -202,12 +257,12 @@ export class Parser {
     }
   }
 
-  block = (_token) => {
-    const token = _token ?? this.tokens.shift()
+  block = (_token: LexerToken | null): any => {
+    const token = _token ?? this.tokens.shift()!;
 
     if (token.value == "{") {
       const statements = this.statements()
-      const closing = this.tokens.shift()
+      const closing = this.tokens.shift()!;
       if (closing.value != "}") throw new Error("Expected }")
 
       return {
@@ -223,12 +278,12 @@ export class Parser {
     }
   }
 
-  expression = (_token) => {
-    var left = this.comparison(_token ?? this.tokens.shift())
+  expression = (_token: LexerToken | null): any => {
+    var left = this.comparison(_token ?? this.tokens.shift()!)
 
     while (["&&", "||"].includes(this.tokens[0]?.value)) {
-      let operator = this.tokens.shift()
-      let right = this.comparison(this.tokens.shift())
+      let operator = this.tokens.shift()!
+      let right = this.comparison(this.tokens.shift()!)
       left = {
         type: "LogicalExpression",
         left,
@@ -239,12 +294,12 @@ export class Parser {
     return left
   }
 
-  comparison = (_token) => {
-    var left = this.sum(_token ?? this.tokens.shift())
+  comparison = (_token: LexerToken | null): any => {
+    var left = this.sum(_token ?? this.tokens.shift()!)
 
     while (["!=", "==", ">", ">=", "<", "<="].includes(this.tokens[0]?.value)) {
-      let operator = this.tokens.shift()
-      let right = this.sum(this.tokens.shift())
+      let operator = this.tokens.shift()!
+      let right = this.sum(this.tokens.shift()!)
       left = {
         type: "BinaryExpression",
         left,
@@ -256,12 +311,12 @@ export class Parser {
     return left;
   }
 
-  sum = (_token) => {
-    let left = this.term(_token ?? this.tokens.shift());
+  sum = (_token: LexerToken | null): any => {
+    let left = this.term(_token ?? this.tokens.shift()!);
 
     while (["+", "-"].includes(this.tokens[0]?.value)) {
       let operator = this.tokens.shift()
-      let right = this.term(this.tokens.shift())
+      let right = this.term(this.tokens.shift()!)
       left = {
         type: "BinaryExpression",
         left,
@@ -273,12 +328,12 @@ export class Parser {
     return left;
   }
 
-  term = (_token) => {
-    let left = this.factor(_token ?? this.tokens.shift());
+  term = (_token: LexerToken | null): any => {
+    let left: any = this.factor(_token ?? this.tokens.shift()!);
 
     while (["*", "/", "%"].includes(this.tokens[0]?.value)) {
       let operator = this.tokens.shift()
-      let right = this.term(this.tokens.shift())
+      let right = this.term(this.tokens.shift()!)
       left = {
         type: "BinaryExpression",
         left,
@@ -290,11 +345,11 @@ export class Parser {
     return this.factor(left);
   }
 
-  factor = (_token) => {
-    let token = _token ?? this.tokens.shift();
+  factor = (_token: LexerToken | null): any => {
+    let token = _token ?? this.tokens.shift()!;
 
     if (["-", "!"].includes(token.value)) {
-      let factor = this.factor();
+      let factor = this.factor(null);
       return {
         type: "UnaryExpression",
         argument: factor,
@@ -305,12 +360,12 @@ export class Parser {
     return this.power(token)
   }
 
-  power = (_token) => {
-    let left = this.primary(_token ?? this.tokens.shift());
+  power = (_token: LexerToken | null): any => {
+    let left = this.primary(_token ?? this.tokens.shift()!);
 
     if (this.tokens[0].value == "**") {
       let operator = this.tokens.shift()
-      let right = this.factor()
+      let right = this.factor(null)
 
       return {
         type: "BinaryExpression",
@@ -323,14 +378,14 @@ export class Parser {
     return left
   }
 
-  primary = (_token) => {
-    let left = this.atom(_token ?? this.tokens.shift());
+  primary = (_token: LexerToken | null): any => {
+    let left = this.atom(_token ?? this.tokens.shift()!);
 
     while ([".", "(", "{"].includes(this.tokens[0]?.value)) {
-      let op = this.tokens.shift()
+      let op = this.tokens.shift()!;
 
       if (op.value == ".") {
-        let right = this.atom()
+        let right = this.atom(null)
         left = {
           type: "MemberExpression",
           object: left,
@@ -339,8 +394,8 @@ export class Parser {
       }
 
       else if (op.value == "(") {
-        var params = this.params()
-        var closing = this.tokens.shift()
+        var params = this.params(null);
+        var closing = this.tokens.shift()!;
         if (closing.value != ")") throw new Error("Expected ')'")
 
         left = {
@@ -352,12 +407,12 @@ export class Parser {
       }
 
       else if (op.value == "{") {
-        const fields = []
+        const fields: any[] = []
 
         while (this.tokens[0].value != "}") {
-          const name = this.tokens.shift()
+          const name = this.tokens.shift()!;
           this.expectSymbol(null, ":")
-          const value = this.expression()
+          const value = this.expression(null)!;
           fields.push([name, value])
 
           if (this.tokens[0].value == "}") break;
@@ -381,8 +436,8 @@ export class Parser {
     return left
   }
 
-  atom = (_token) => {
-    let token = _token ?? this.tokens.shift();
+  atom = (_token: LexerToken | null): any => {
+    let token = _token ?? this.tokens.shift()!;
 
     // Literally just ignore
     if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression",
@@ -396,8 +451,8 @@ export class Parser {
 
     // Group
     else if (token.value == "(") {
-      let expr = this.expression();
-      let next = this.tokens.shift()
+      let expr = this.expression(null);
+      let next = this.tokens.shift()!;
       if (next.value != ")") throw new Error(`Expected ')' instead got ${next.type}`)
       return expr
     };

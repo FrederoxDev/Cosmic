@@ -22,12 +22,14 @@ const tokenTypes = [
   { type: 'identifier', regex: identifierRegex },
 ];
 
-export const Tokenize = (input) => {
-  const tokens = [];
+type LexerToken = { type: string; value: string; start: number; end: number; };
+
+export const Tokenize = (input: string) => {
+  const tokens: LexerToken[] = [];
   let position = 0;
 
   while (position < input.length) {
-    let match = null;
+    let match: RegExpExecArray | null = null;
 
     for (const tokenType of tokenTypes) {
       const regex = new RegExp(`^(${tokenType.regex.source})`);

@@ -6,8 +6,15 @@ export class Interpreter {
         this.currentSelf = undefined;
         this.ast = ast;
         this.globals = new Context()
+
+        this.globals.nativeStruct("console", [], [
+            new NativeFunction("log", () => {
+                console.log("console.log()")
+            })
+        ])
+        
         this.globals.variables["log"] = new NativeFunction("log", (args => {
-            var out = args.map(arg => arg?.inspect())
+            var out = args.map(arg => arg?.inspect?.())
             console.log("\x1b[90m>\x1b[37m", ...out)
         }))
     }
@@ -46,9 +53,10 @@ export class Interpreter {
             { type: "StructDeclaration", func: this.structDeclaration },
             { type: "StructExpression", func: this.structExpression },
             { type: "StructImpl", func: this.structImpl },
-            { type: "MemberExpression", func: this.memberExpression }
+            { type: "MemberExpression", func: this.memberExpression },
+            { type: "ReturnExpression", func: this.returnExpression }
         ]
-        
+
         const type = types.find(type => type.type == node.type)
         if (type == undefined) throw new Error(`traverse function does not exist for ${node.type}`)
 
@@ -104,13 +112,30 @@ export class Interpreter {
     functionDeclaration = (node, ctx) => {
         ctx.variables[node.id.value] = new Function(node.id.value, node.params, node.body)
     }
+
+    returnExpression = (node, ctx) => {
+        if (node.value != undefined)
+            return this.traverseExpr(node.value, ctx)
+
+        else return undefined
+    }
     
     callExpression = (node, ctx) => {
         const callee = this.traverseExpr(node.callee, ctx)
+        const calleeArgTypes = callee.args;
 
         if (callee instanceof Function) {
             const funcCtx = new Context()
             funcCtx.parent = this.globals
+
+            for (var i = 0; i < calleeArgTypes.length; i++) {
+                const id = calleeArgTypes[i].id
+                const type = calleeArgTypes[i]
+                const value = this.traverseExpr(node.arguments[i], ctx)
+                // Todo check type of value
+
+                funcCtx.variables[id] = value
+            }
 
             return this.traverseExpr(callee.body, funcCtx)
         }
@@ -121,11 +146,6 @@ export class Interpreter {
         else {
             throw new Error(`Expected one of type [Function, NativeFunction], instead got ${callee.constructor.name}`)
         }
-
-        // if (!(callee instanceof Function)) throw new Error(`Expected typeof Function, instead got ${callee.constructor.name}`)
-        // const funcCtx = new Context()
-        
-        // return this.traverseExpr(callee.body, funcCtx)
     }
 
     variableDeclaration = (node, ctx) => {
@@ -133,7 +153,11 @@ export class Interpreter {
     }
 
     blockStatement = (node, ctx) => {
-        node.body.map(statement => this.traverseExpr(statement, ctx))
+        for (var i = 0; i < node.body.length; i++) {
+            const statement = node.body[i];
+            if (statement.type == "ReturnExpression") return this.traverseExpr(statement, ctx)
+            else this.traverseExpr(statement, ctx)
+        }
     }
 
     /* Primitive Types */

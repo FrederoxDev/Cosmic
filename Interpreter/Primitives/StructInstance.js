@@ -18,9 +18,9 @@ export class StructInstance extends PrimitiveType {
             const name = field[0].value
             const value = this.selfCtx.variables[name]
 
-            out += `\n    ${name}: ${value.inspect()},`
+            out += `, ${name}: ${value.inspect()}`
         })
 
-        return `${this.structBase.id} {${out}\n  }`
+        return `${this.structBase.id} { ${out.substring(2)} }`
     }
 }

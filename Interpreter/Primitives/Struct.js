@@ -5,7 +5,7 @@ export class Struct extends PrimitiveType {
         super()
         this.id = id
         this.fields = fields
-        this.implements = []
+        this.implements =  []
     }
 
     toString() {
@@ -16,7 +16,7 @@ export class Struct extends PrimitiveType {
         return `[Struct ${this.id}]`
     }
 
-    implement(func) {
+    implementRuntime(func) {
         this.implements.push(func)
     }
 }
