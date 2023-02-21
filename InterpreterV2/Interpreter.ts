@@ -1,8 +1,9 @@
 import { Context } from "./Context";
-import { NumberLiteral } from "./Literals/NumberLiteral";
+import { Literal } from "./Primitives/Literal";
 import { Struct } from "./Primitives/Struct";
 import { StructRuntime } from "./Primitives/StructRuntime";
-import { NumberStruct } from "./Structs/Number";
+import { BooleanStruct } from "./Structs/BooleanStruct";
+import { NumberStruct } from "./Structs/NumberStruct";
 
 export class Interpreter {
     ast: any;
@@ -13,6 +14,7 @@ export class Interpreter {
 
         const globals = new Context(undefined)
         globals.setStruct("number", NumberStruct)
+        globals.setStruct("boolean", BooleanStruct)
 
         this.globals = globals;
     }
@@ -39,7 +41,7 @@ export class Interpreter {
 
     assertType = (expectedType: string, operator: string, rhs: StructRuntime): StructRuntime => {
         if (rhs.struct.id != expectedType)
-            this.runtimeError(`Expected ${expectedType} instead got ${rhs.struct.id}`)
+            this.runtimeError(`Operator '${operator}' expected '${expectedType}' instead got '${rhs.struct.id}'`)
         
         return rhs
     }
@@ -48,7 +50,9 @@ export class Interpreter {
         const types = [
             { type: "BlockStatement", func: this.blockStatement },
             { type: "Number", func: this.primitiveNumber },
-            { type: "BinaryExpression", func: this.binaryExpression }
+            { type: "Boolean", func: this.primitiveBoolean },
+            { type: "BinaryExpression", func: this.binaryExpression },
+            { type: "LogicalExpression", func: this.logicalExpression }
         ]
 
         const type = types.find(type => type.type == node.type)
@@ -86,6 +90,23 @@ export class Interpreter {
         return func.onCall(this, ctx, left, right);
     }
 
+    logicalExpression = (node: any, ctx: Context) => {
+        const left = this.findTraverseFunc(node.left, ctx) as StructRuntime;
+        const right = this.findTraverseFunc(node.right, ctx) as StructRuntime;
+
+        const handlers = [
+            { operator: "&&", handler: "And" },
+            { operator: "||", handler: "Or" }
+        ]
+
+        const handler = handlers.find(handler => handler.operator == node.operator.value)!.handler
+        if (!left.hasFunction(handler)) 
+            this.runtimeError(`Struct ${left.struct.id} does not implement '${handler}' for operator '${node.operator.value}'`)
+        
+        const func = left.getFunction(handler)
+        return func.onCall(this, ctx, left, right);
+    }
+
     /* Statements */
     blockStatement = (node: {body: any[], start: number, end: number}, ctx: Context): void => {
         // Todo: Implement return statements
@@ -99,7 +120,16 @@ export class Interpreter {
         const struct = this.globals.getStruct("number") as Struct;
         const structCtx = new Context(undefined);
 
-        structCtx.setVariable("value", new NumberLiteral(node.value))
+        structCtx.setVariable("value", new Literal<number>(node.value))
+        struct.nativeImplements.forEach(nativeFunc => structCtx.setVariable(nativeFunc.id, nativeFunc));
+        return new StructRuntime(struct, structCtx)
+    }
+
+    primitiveBoolean = (node: { value: boolean }, ctx: Context): StructRuntime => {
+        const struct = this.globals.getStruct("boolean") as Struct;
+        const structCtx = new Context(undefined);
+
+        structCtx.setVariable("value", new Literal<boolean>(node.value))
         struct.nativeImplements.forEach(nativeFunc => structCtx.setVariable(nativeFunc.id, nativeFunc));
         return new StructRuntime(struct, structCtx)
     }
