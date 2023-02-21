@@ -1,1 +1,5 @@
-12 >= 12 && true;
+log(number);
+log(number::Add);
+
+log(number::Add(12, 13));
+log(12 + 13);

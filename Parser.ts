@@ -381,7 +381,7 @@ export class Parser {
   primary = (_token: LexerToken | null): any => {
     let left = this.atom(_token ?? this.tokens.shift()!);
 
-    while ([".", "(", "{"].includes(this.tokens[0]?.value)) {
+    while ([".", "(", "{", "::"].includes(this.tokens[0]?.value)) {
       let op = this.tokens.shift()!;
 
       if (op.value == ".") {
@@ -431,6 +431,15 @@ export class Parser {
           fields
         }
       }
+
+      else if (op.value == "::") {
+        let right = this.atom(null)
+        left = {
+          type: "StructMethodAccessor",
+          struct: left,
+          method: right
+        }
+      }
     }
 
     return left
@@ -441,7 +450,7 @@ export class Parser {
 
     // Literally just ignore
     if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression",
-    "StructExpression"
+    "StructExpression", "StructMethodAccessor"
     ].includes(token.type)) return token;
 
     if (token.type == "numberLiteral") return { type: "Number", value: parseFloat(token.value) }

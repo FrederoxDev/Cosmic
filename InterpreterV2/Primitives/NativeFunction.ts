@@ -1,14 +1,13 @@
+import { Context } from "../Context"
+import { Interpreter } from "../Interpreter"
+
 export class NativeFunction {
     id: string
-    onCall: () => any
+    onCall: (interpreter: Interpreter, ctx: Context, ...args: any[]) => any
 
-    constructor (id: string, onCall: () => any) {
+    constructor (id: string, onCall: (interpreter: Interpreter, ctx: Context, ...args: any[]) => any) {
         this.id = id
         this.onCall = onCall
-    }
-
-    toString() {
-        return new String(`[NativeFunction ${this.id}]`)
     }
 
     inspect() {

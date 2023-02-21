@@ -4,4 +4,8 @@ export class Literal<T> {
     constructor(value: T) {
         this.value = value
     }
+
+    inspect() {
+        return this.value
+    }
 }

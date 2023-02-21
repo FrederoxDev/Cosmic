@@ -18,10 +18,6 @@ export class StructRuntime {
         return this.selfCtx.getVariable(id);
     }
 
-    toString() {
-        return new String(`[Instanceof ${this.struct.id}]`)
-    }
-
     inspect() {
         return `[Instanceof ${this.struct.id}]`
     }

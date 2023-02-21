@@ -13,8 +13,8 @@ export class Struct {
         this.nativeImplements = nativeImplements ?? []
     }
 
-    toString() {
-        return new String(`[Struct ${this.id}]`)
+    getMethod(id: string): NativeFunction | undefined {
+        return this.nativeImplements.find(native => native.id == id)
     }
 
     inspect() {
