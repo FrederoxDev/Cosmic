@@ -6,6 +6,7 @@ import { StructRuntime } from "./Primitives/StructRuntime";
 import { BooleanStruct } from "./Structs/BooleanStruct";
 import { NumberStruct } from "./Structs/NumberStruct";
 import { StringStruct } from "./Structs/StringStruct";
+import { Atom, BinaryExpression, BlockStatement, LogicalExpression } from "../Parser"
 
 export class Interpreter {
     ast: any;
@@ -81,6 +82,8 @@ export class Interpreter {
 
     /** Will find the function accosiated with a specific node */
     findTraverseFunc = (node: any, ctx: Context) => {
+        if (node.start == undefined) console.warn(`${node.type} does not contain a start position!`)
+
         const types = [
             { type: "BlockStatement", func: this.blockStatement },
             { type: "Number", func: this.primitiveNumber },
@@ -116,7 +119,7 @@ export class Interpreter {
     }
 
     /* Operations */
-    private binaryExpression = (node: any, ctx: Context) => {
+    private binaryExpression = (node: BinaryExpression, ctx: Context) => {
         const left = this.findTraverseFunc(node.left, ctx) as StructRuntime;
         const right = this.findTraverseFunc(node.right, ctx) as StructRuntime;
 
@@ -145,7 +148,7 @@ export class Interpreter {
         return func.onCall(this, ctx, [left, right]);
     }
 
-    private logicalExpression = (node: any, ctx: Context) => {
+    private logicalExpression = (node: LogicalExpression, ctx: Context) => {
         const left = this.findTraverseFunc(node.left, ctx) as StructRuntime;
         const right = this.findTraverseFunc(node.right, ctx) as StructRuntime;
 
@@ -163,7 +166,7 @@ export class Interpreter {
     }
 
     /* Statements */
-    private blockStatement = (node: {body: any[], start: number, end: number}, ctx: Context): void => {
+    private blockStatement = (node: BlockStatement, ctx: Context): void => {
         // Todo: Implement return statements
         node.body.forEach(node => {
             this.findTraverseFunc(node, ctx)
@@ -171,7 +174,7 @@ export class Interpreter {
     }
 
     /* PRIMITIVES */
-    public primitiveNumber = (node: { value: number }, ctx: Context): StructRuntime => {
+    public primitiveNumber = (node: {value: number}, ctx: Context): StructRuntime => {
         const struct = this.globals.getStruct("number") as Struct;
         const structCtx = new Context(undefined);
 
@@ -180,7 +183,7 @@ export class Interpreter {
         return new StructRuntime(struct, structCtx)
     }
 
-    public primitiveString = (node: { value: string }, ctx: Context): StructRuntime => {
+    public primitiveString = (node: {value: string}, ctx: Context): StructRuntime => {
         const struct = this.globals.getStruct("string") as Struct;
         const structCtx = new Context(undefined);
 
@@ -189,7 +192,7 @@ export class Interpreter {
         return new StructRuntime(struct, structCtx)
     }
 
-    public primitiveBoolean = (node: { value: boolean }, ctx: Context): StructRuntime => {
+    public primitiveBoolean = (node: {value: boolean}, ctx: Context): StructRuntime => {
         const struct = this.globals.getStruct("boolean") as Struct;
         const structCtx = new Context(undefined);
 
