@@ -10,19 +10,16 @@ export class Context {
     }
 
     getVariable(id: string): any {
-        return this.variables[id]
+        if (this.hasVariable(id)) return this.variables[id]
+        if (this.parent != undefined) return this.parent.getVariable(id);
+        return null;
     }
 
     setVariable(id: string, value: any): void {
-        this.variables[id] = value
+        this.variables[id] = value;
     }
 
-    /** Used for creating primitive types */
-    setStruct(id: string, struct: Struct): void {
-        this.setVariable(id, struct)
-    }
-
-    getStruct(id: string): Struct | null {
-        return this.getVariable(id)
+    hasVariable(id: string): boolean {
+        return this.variables[id] != undefined;
     }
 }

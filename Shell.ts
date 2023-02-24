@@ -2,6 +2,7 @@ import { Tokenize } from "./Lexer"
 import { Parser } from "./Parser"
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
 import { Interpreter } from "./InterpreterV2/Interpreter";
+import { Context } from "./InterpreterV2/Context";
 
 if (!existsSync("./err")) mkdirSync("./err");
 const input = readFileSync("./input.cos", { encoding: 'utf-8' });
@@ -20,10 +21,11 @@ writeFileSync('./err/ast.json', JSON.stringify(ast, null, 2), { flag: "w" });
 
 /* Interpreting */
 console.log("Output:")
-const [result, runtimeError] = new Interpreter(ast).execute();
-if (runtimeError) {
-    console.error(runtimeError);
+const result = new Interpreter(ast, input).execute() as any;
+
+if (result instanceof Error) {
+    console.error(result);
     process.exit(1);
 }
 
-console.log("\nFinished running with 0 errors!")
+console.log("\nFinished running with 0 errors!\n")

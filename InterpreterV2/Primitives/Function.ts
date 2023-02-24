@@ -10,4 +10,8 @@ export class Function {
         this.parameters = parameters
         this.body = body
     }
+
+    inspect() {
+        return `[Function ${this.id}]`
+    }
 }

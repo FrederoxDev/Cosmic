@@ -1,12 +1,19 @@
-let test = 12;
+struct V3 {
+    x: Number,
+    y: Number,
+    z: Number
+}
 
-struct Foo {value: Boolean}
+impl V3 {
+    fn From(x: Number, y: Number, z: Number) {
+        return V3 {x: x, y: y, z: z};
+    }
 
-impl Foo {
-    fn From(value: Boolean) {
-        return Foo {value: value};
+    fn Inspect(self: V3) {
+        log("X", self.x);
+        log("Y", self.y);
+        log("Z", self.z);
     }
 }
 
-let test = Foo::From;
-log(test);
+V3::Inspect(V3::From(12, 1, 3));
