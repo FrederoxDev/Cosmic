@@ -6,6 +6,7 @@ export class StructRuntime {
     selfCtx: Context
 
     constructor (struct: Struct, selfCtx: Context) {
+        if (struct == undefined) throw new Error("Passing in undefined Struct")
         this.struct = struct
         this.selfCtx = selfCtx
     }
@@ -19,6 +20,6 @@ export class StructRuntime {
     }
 
     inspect() {
-        return `[Instanceof ${this.struct.id}]`
+        return `[Instanceof ${this.struct?.id}]`
     }
 }

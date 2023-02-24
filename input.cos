@@ -1,5 +1,12 @@
-log(number);
-log(number::Add);
+let test = 12;
 
-log(number::Add(12, 13));
-log(12 + 13);
+struct Foo {value: Boolean}
+
+impl Foo {
+    fn From(value: Boolean) {
+        return Foo {value: value};
+    }
+}
+
+let test = Foo::From;
+log(test);

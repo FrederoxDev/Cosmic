@@ -6,10 +6,10 @@ import { Struct } from "../Primitives/Struct";
 import { StructRuntime } from "../Primitives/StructRuntime";
 import { getLiteralValue, parseBinaryArgs, parseBinaryArgsAssertType, parseBinaryTypes } from "./StructCommon";
 
-export const NumberStruct = new Struct("number", [{name: "value", type: "numberLiteral"}], [
+export const NumberStruct = new Struct("Number", [{name: "value", type: "numberLiteral"}], [
     
     new NativeFunction("Add", (interpreter: Interpreter, ctx: Context, args) => { 
-        const [left, right] = parseBinaryArgsAssertType<number>(interpreter, args, "number", "+");
+        const [left, right] = parseBinaryArgsAssertType<number>(interpreter, args, "Number", "+");
         return interpreter.primitiveNumber({ value: left + right }, ctx)
     }),
 

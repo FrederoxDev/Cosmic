@@ -1,3 +1,6 @@
+import { Function } from "./InterpreterV2/Primitives/Function";
+import { Field } from "./InterpreterV2/Primitives/Struct";
+
 type LexerToken = { type: string; value: string; start: number; end: number; };
 
 /* Parser return types */
@@ -6,8 +9,9 @@ export type BlockStatement = { body: StatementCommon[] } & StatementCommon;
 export type IfStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
 export type FunctionDefStatement = { id: string, parameters: FunctionParameter[], body: BlockStatement } & StatementCommon;
 export type FunctionParameter = { id: string, paramType: string } & StatementCommon;
+export type CallExpression = {callee: StatementCommon, arguments: StatementCommon[]} & StatementCommon;
 export type Argument = {} & StatementCommon;
-export type StructDefStatement = { id: string, fields: LexerToken[][] } & StatementCommon;
+export type StructDefStatement = { id: string, fields: Field[] } & StatementCommon;
 export type StructImplStatement = { structId: string, functions: FunctionDefStatement[] } & StatementCommon;
 export type VariableDeclaration = { id: string, init: StatementCommon } & StatementCommon;
 export type ReturnStatement = { value: StatementCommon | null } & StatementCommon;
@@ -15,6 +19,7 @@ export type LogicalExpression = { left: StatementCommon, operator: LexerToken, r
 export type BinaryExpression = { left: StatementCommon, operator: LexerToken, right: StatementCommon } & StatementCommon;
 export type UnaryExpression = { argument: UnaryExpression, operator: string } & StatementCommon;
 export type Atom<T> = { value: T } & StatementCommon
+export type MemberExpression = { object: StatementCommon, property: LexerToken } & StatementCommon
 
 export class Parser {
     tokens: LexerToken[];
@@ -137,7 +142,9 @@ export class Parser {
         this.expectSymbol(null, "(")
         const parameters = this.FunctionParameters();
         this.expectSymbol(null, ")")
+        this.expectSymbol(null, "{")
         const block = this.BlockStatement()
+        this.expectSymbol(null, "}")
 
         return {
             type: "FunctionDeclaration",
@@ -156,11 +163,14 @@ export class Parser {
         var id = this.tokens.shift()!;
         this.expectSymbol(null, ":")
         var type = this.tokens.shift()!;
+
         parameters.push(
             { id: id.value, paramType: type.value, start: id.start, end: type.end, type: "FunctionParameter" }
         )
 
         while (this.tokens[0].value == ",") {
+            this.tokens.shift();
+
             var id = this.tokens.shift()!;
             this.expectSymbol(null, ":")
             var type = this.tokens.shift()!;
@@ -193,13 +203,13 @@ export class Parser {
         const identifier = this.tokens.shift()!.value;
 
         this.expectSymbol(null, "{")
-        const fields: LexerToken[][] = []
+        const fields: Field[] = []
 
         while (this.tokens[0].value != "}") {
             const name = this.tokens.shift()!
             this.expectSymbol(null, ":")
             const type = this.tokens.shift()!
-            fields.push([name, type])
+            fields.push({name: name.value, type: type.value})
 
             if (this.tokens[0].value == "}") break;
             // Optional comma at last field
