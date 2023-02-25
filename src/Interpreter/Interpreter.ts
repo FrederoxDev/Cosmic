@@ -14,58 +14,16 @@ export class Interpreter {
     code: string;
     globals: Context;
 
-    constructor(ast: any, code: string) {
+    constructor(ast: any, code: string, globals: Context) {
         this.ast = ast
         this.code = code;
-
-        const globals = new Context(undefined)
-        globals.setVariable("Number", NumberStruct)
-        globals.setVariable("Boolean", BooleanStruct)
-        globals.setVariable("String", StringStruct)
-
-        globals.setVariable("log", new NativeFunction("log", (interpreter, ctx, args) => {
-            var out: string[] = [];
-
-            for (var i = 0; i < args.length; i++) {
-                const arg = args[i];
-
-                if (arg instanceof StructRuntime) {
-                    if (!arg.hasImplementedFunction("Inspect")) {
-                        out.push(arg?.inspect?.());
-                        continue;
-                    }
-                    const inspect = arg.getImplementedFunction("Inspect")
-
-                    if (inspect instanceof NativeFunction) {
-                        var [result, ctx] = inspect.onCall(interpreter, ctx, arg);
-                        out.push(result.selfCtx.getVariable("value").value)
-                    }
-                }
-
-                else if (arg instanceof Struct) {
-                    out.push(arg.inspect())
-                }
-
-                else if (arg instanceof NativeFunction) {
-                    out.push(arg.inspect());
-                }
-
-                else {
-                    console.log(arg)
-                }
-            }
-
-            console.log("\x1b[90m>\x1b[37m", ...out)
-            return [null, ctx];
-        }))
-
         this.globals = globals;
     }
 
-    execute = () => {
+    execute = async () => {
         try {
             const ctx = new Context(this.globals);
-            return this.findTraverseFunc(this.ast, ctx);
+            return await this.findTraverseFunc(this.ast, ctx);
         }
 
         catch (e) {
@@ -117,7 +75,7 @@ export class Interpreter {
     }
 
     /** Will find the function accosiated with a specific node */
-    findTraverseFunc = (node: any, ctx: Context): [any, Context] => {
+    findTraverseFunc = async (node: any, ctx: Context): Promise<[any, Context]> => {
         const types = [
             // Statements
             { type: "BlockStatement", func: this.blockStatement },
@@ -149,22 +107,22 @@ export class Interpreter {
         if (type == undefined) throw this.interpreterError(`traverse function does not exist for ${node.type}`);
 
         // Bind the function back to the Interpreter object
-        const result = type.func.bind(this)(node, ctx);
+        const result = await (type.func.bind(this)(node, ctx));
         return result;
     }
 
     /* Statements */
-    private blockStatement = (node: BlockStatement, ctx: Context): [any, Context] => {
+    private blockStatement = async (node: BlockStatement, ctx: Context): Promise<[any, Context]> => {
         for (var i = 0; i < node.body.length; i++) {
             const statement = node.body[i];
 
             // Return Keyword in blockStatements
             if (statement.type === "ReturnExpression") {
-                return this.findTraverseFunc((statement as ReturnStatement).value, ctx);
+                return await this.findTraverseFunc((statement as ReturnStatement).value, ctx);
             }
 
             // Sets the context to the result from running the statement
-            var [_, ctx] = this.findTraverseFunc(statement, ctx);
+            var [_, ctx] = await this.findTraverseFunc(statement, ctx);
         }
 
         // Returns null if no 'return' keyword in block evaluated
@@ -172,12 +130,12 @@ export class Interpreter {
     }
 
     /* Structs */
-    private structDeclaration = (node: StructDefStatement, ctx: Context): [null, Context] => {
+    private structDeclaration = async (node: StructDefStatement, ctx: Context): Promise<[null, Context]> => {
         ctx.setVariable(node.id, new Struct(node.id, node.fields));
         return [null, ctx];
     }
 
-    private structImpl = (node: StructImplStatement, ctx: Context): [null, Context] => {
+    private structImpl = async (node: StructImplStatement, ctx: Context): Promise<[null, Context]> => {
         // Get a copy of the struct and implement the functions
         const struct = ctx.getVariable(node.structId) as Struct;
         // @ts-ignore
@@ -188,8 +146,8 @@ export class Interpreter {
         return [null, ctx];
     }
 
-    private structMethodAccessor = (node: any, ctx: Context): [any, Context] => {
-        var [structUnkown, ctx]: [Struct, Context] = this.findTraverseFunc(node.struct, ctx);
+    private structMethodAccessor = async (node: any, ctx: Context): Promise<[any, Context]> => {
+        var [structUnkown, ctx]: [Struct, Context] = await this.findTraverseFunc(node.struct, ctx);
         var struct = structUnkown;
 
         if (structUnkown instanceof StructRuntime) {
@@ -203,24 +161,31 @@ export class Interpreter {
         return [new Function(node.method.value, method.parameters, method.body), ctx]
     }
 
-    private structExpression = (node: any, ctx: Context): [any, Context] => {
+    private structExpression = async (node: any, ctx: Context): Promise<[any, Context]> => {
         const struct = ctx.getVariable(node.id.value) as Struct;
         const structCtx = new Context(ctx);
 
-        node.fields.forEach((field: any) => {
-            structCtx.setVariable(field[0].value, this.findTraverseFunc(field[1], ctx)[0]);
+        await node.fields.forEach(async (field: any) => {
+            structCtx.setVariable(field[0].value, (await this.findTraverseFunc(field[1], ctx))[0]);
         });
 
         return [new StructRuntime(struct, structCtx), ctx]
     }
 
     /* Functions */
-    private callExpression = (node: CallExpression, ctx: Context): [null, Context] => {
-        var [callee, ctx] = this.findTraverseFunc(node.callee, ctx);
+    private callExpression = async (node: CallExpression, ctx: Context): Promise<[null, Context]> => {
+        var [callee, ctx] = await this.findTraverseFunc(node.callee, ctx);
 
         if (callee instanceof NativeFunction) {
-            var args: any = node.arguments.map((arg: any) => this.findTraverseFunc(arg, ctx)[0])
-            return callee.onCall(this, ctx, args)
+            var args: any[] = []
+
+            for (var i = 0; i < node.arguments.length; i++) {
+                const arg = node.arguments[i];
+                var [traversedArg, ctx] = await this.findTraverseFunc(arg, ctx);
+                args.push(traversedArg)
+            }
+
+            return await callee.onCall(this, ctx, args)
         }
 
         if (callee instanceof Function) {
@@ -234,7 +199,7 @@ export class Interpreter {
             // Check individual arguments if they match parameters
             for (var i = 0; i < callee.parameters.length; i++) {
                 const param = callee.parameters[i];
-                var [arg, ctx] = this.findTraverseFunc(node.arguments[i], ctx);
+                var [arg, ctx] = await this.findTraverseFunc(node.arguments[i], ctx);
 
                 if (param.paramType != arg.struct.id) {
                     throw this.runtimeErrorCode(`fn '${callee.id}' expected argument ${i} to be type '${param.paramType}' instead got '${arg.struct.id}'`, node.arguments[i].start, node.arguments[i].end)
@@ -243,21 +208,21 @@ export class Interpreter {
                 funcCtx.setVariable(param.id, arg);
             }
 
-            return this.findTraverseFunc(callee.body, funcCtx);
+            return await this.findTraverseFunc(callee.body, funcCtx);
         }
 
         throw this.runtimeErrorCode(`Tried to call non Function`, node.start, node.end)
     }
 
     /* Expressions */
-    private variableDeclaration = (node: VariableDeclaration, ctx: Context): [null, Context] => {
-        var [value, ctx] = this.findTraverseFunc(node.init, ctx);
+    private variableDeclaration = async (node: VariableDeclaration, ctx: Context): Promise<[null, Context]> => {
+        var [value, ctx] = await this.findTraverseFunc(node.init, ctx);
         ctx.setVariable(node.id, value);
         return [null, ctx];
     }
 
-    private memberExpression = (node: MemberExpression, ctx: Context): [any, Context] => {
-        const object: any = this.findTraverseFunc(node.object, ctx)[0];
+    private memberExpression = async (node: MemberExpression, ctx: Context): Promise<[any, Context]> => {
+        var [object, ctx] = await this.findTraverseFunc(node.object, ctx);
 
         if (object instanceof StructRuntime) {
             return [object.selfCtx.getVariable(node.property.value), ctx];
@@ -268,9 +233,9 @@ export class Interpreter {
         }
     }
 
-    private binaryExpression = (node: BinaryExpression, ctx: Context): [any, Context] => {
-        var [left, ctx]: [StructRuntime, Context] = this.findTraverseFunc(node.left, ctx)
-        var [right, ctx]: [StructRuntime, Context] = this.findTraverseFunc(node.right, ctx)
+    private binaryExpression = async (node: BinaryExpression, ctx: Context): Promise<[any, Context]> => {
+        var [left, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.left, ctx)
+        var [right, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.right, ctx)
 
         const handlers = [
             /* Arithmetic Operations */
@@ -297,7 +262,7 @@ export class Interpreter {
         const func = left.getImplementedFunction(handler)!
 
         if (func instanceof NativeFunction) {
-            return func.onCall(this, ctx, [left, right]);
+            return await func.onCall(this, ctx, [left, right]);
         }
         
         const funcCtx = new Context(ctx);
@@ -317,12 +282,12 @@ export class Interpreter {
         funcCtx.setVariable(func.parameters[0].id, left);
         funcCtx.setVariable(func.parameters[1].id, right);
 
-        return this.findTraverseFunc(func.body, funcCtx);
+        return await this.findTraverseFunc(func.body, funcCtx);
     }
 
-    private logicalExpression = (node: LogicalExpression, ctx: Context): [any, Context] => {
-        const left = this.findTraverseFunc(node.left, ctx)[0] as StructRuntime;
-        const right = this.findTraverseFunc(node.right, ctx)[0] as StructRuntime;
+    private logicalExpression = async (node: LogicalExpression, ctx: Context): Promise<[any, Context]> => {
+        var [left, ctx] = await this.findTraverseFunc(node.left, ctx);
+        var [right, ctx] = await this.findTraverseFunc(node.right, ctx);
 
         const handlers = [
             { operator: "&&", handler: "And" },
@@ -336,13 +301,13 @@ export class Interpreter {
         const func = left.getImplementedFunction(handler)
 
         if (func instanceof NativeFunction) {
-            return func.onCall(this, ctx, [left, right]);
+            return await func.onCall(this, ctx, [left, right]);
         }
         throw this.runtimeError("F")
     }
 
     /* Primitives */
-    private identifier = (node: any, ctx: Context): [null, Context] => {
+    private identifier = async (node: any, ctx: Context): Promise<[null, Context]> => {
         const value = ctx.getVariable(node.value);
 
         if (value === null)
@@ -351,7 +316,7 @@ export class Interpreter {
         return [value, ctx];
     }
 
-    public primitiveNumber = (node: { value: number }, ctx: Context): [StructRuntime, Context] => {
+    public primitiveNumber = async (node: { value: number }, ctx: Context): Promise<[StructRuntime, Context]> => {
         const struct = this.globals.getVariable("Number") as Struct;
         const structCtx = new Context(undefined);
 
@@ -360,7 +325,7 @@ export class Interpreter {
         return [new StructRuntime(struct, structCtx), ctx]
     }
 
-    public primitiveString = (node: { value: string }, ctx: Context): [StructRuntime, Context] => {
+    public primitiveString = async (node: { value: string }, ctx: Context): Promise<[StructRuntime, Context]> => {
         const struct = this.globals.getVariable("String") as Struct;
         const structCtx = new Context(undefined);
 
@@ -369,7 +334,7 @@ export class Interpreter {
         return [new StructRuntime(struct, structCtx), ctx]
     }
 
-    public primitiveBoolean = (node: { value: boolean }, ctx: Context): [StructRuntime, Context] => {
+    public primitiveBoolean = async (node: { value: boolean }, ctx: Context): Promise<[StructRuntime, Context]> => {
         const struct = this.globals.getVariable("Boolean") as Struct;
         const structCtx = new Context(undefined);
 

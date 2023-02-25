@@ -23,3 +23,5 @@ let vec2 = V3::From(1, 2, 4);
 
 let combined = vec1 + vec2;
 V3::Inspect(combined);
+V3::Inspect(combined);
+V3::Inspect(combined);
