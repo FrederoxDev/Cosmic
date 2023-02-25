@@ -1,5 +1,5 @@
-import { Function } from "./InterpreterV2/Primitives/Function";
-import { Field } from "./InterpreterV2/Primitives/Struct";
+import { Function } from "./Interpreter/Primitives/Function";
+import { Field } from "./Interpreter/Primitives/Struct";
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
 

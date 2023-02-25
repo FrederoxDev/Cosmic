@@ -1,8 +1,8 @@
 import { Tokenize } from "./Lexer"
 import { Parser } from "./Parser"
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs"
-import { Interpreter } from "./InterpreterV2/Interpreter";
-import { Context } from "./InterpreterV2/Context";
+import { Interpreter } from "./Interpreter/Interpreter";
+import { Context } from "./Interpreter/Context";
 
 if (!existsSync("./err")) mkdirSync("./err");
 const input = readFileSync("./input.cos", { encoding: 'utf-8' });

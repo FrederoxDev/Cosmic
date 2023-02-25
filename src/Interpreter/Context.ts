@@ -1,5 +1,3 @@
-import { Struct } from "./Primitives/Struct"
-
 export class Context {
     variables: any = {}
     parent: Context | undefined = undefined
