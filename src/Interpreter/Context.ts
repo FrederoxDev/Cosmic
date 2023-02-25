@@ -1,9 +1,11 @@
 export class Context {
-    variables: any = {}
     parent: Context | undefined = undefined
+    private variables: any = {}
+    private protectedData: any = {}
 
     constructor(parent: Context | undefined) {
         this.variables = {}
+        this.protectedData = {}
         this.parent = parent ?? undefined
     }
 
@@ -19,5 +21,15 @@ export class Context {
 
     hasVariable(id: string): boolean {
         return this.variables[id] != undefined;
+    }
+
+    setProtectedData(key: string, value: any) {
+        if (this.parent) this.parent.setProtectedData(key, value);
+        else this.protectedData[key] = value;
+    }
+
+    getProtectedData(key: string) {
+        if (this.parent) return this.parent.getProtectedData(key);
+        return this.protectedData[key];
     }
 }
