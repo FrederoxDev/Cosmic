@@ -11,12 +11,12 @@ export class StructRuntime {
         this.selfCtx = selfCtx
     }
 
-    hasFunction(id: string) {
-        return this.selfCtx.getVariable(id) != undefined
+    hasImplementedFunction(id: string) {
+        return this.struct.getMethod(id) != undefined
     }
 
-    getFunction(id: string) {
-        return this.selfCtx.getVariable(id);
+    getImplementedFunction(id: string) {
+        return this.struct.getMethod(id)
     }
 
     inspect() {

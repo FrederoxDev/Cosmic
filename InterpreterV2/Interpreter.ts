@@ -30,11 +30,11 @@ export class Interpreter {
                 const arg = args[i];
 
                 if (arg instanceof StructRuntime) {
-                    if (!arg.hasFunction("Inspect")) {
+                    if (!arg.hasImplementedFunction("Inspect")) {
                         out.push(arg?.inspect?.());
                         continue;
                     }
-                    const inspect = arg.getFunction("Inspect")
+                    const inspect = arg.getImplementedFunction("Inspect")
 
                     if (inspect instanceof NativeFunction) {
                         var [result, ctx] = inspect.onCall(interpreter, ctx, arg);
@@ -133,6 +133,9 @@ export class Interpreter {
 
             // Expressions
             { type: "VariableDeclaration", func: this.variableDeclaration },
+            { type: "MemberExpression", func: this.memberExpression },
+            { type: "BinaryExpression", func: this.binaryExpression },
+            { type: "LogicalExpression", func: this.logicalExpression },
 
             // Primitives 
             { type: "Identifier", func: this.identifier },
@@ -251,6 +254,91 @@ export class Interpreter {
         var [value, ctx] = this.findTraverseFunc(node.init, ctx);
         ctx.setVariable(node.id, value);
         return [null, ctx];
+    }
+
+    private memberExpression = (node: MemberExpression, ctx: Context): [any, Context] => {
+        const object: any = this.findTraverseFunc(node.object, ctx)[0];
+
+        if (object instanceof StructRuntime) {
+            return [object.selfCtx.getVariable(node.property.value), ctx];
+        }
+
+        else {
+            throw this.interpreterError("Member Expression only implements StructRuntime right now")
+        }
+    }
+
+    private binaryExpression = (node: BinaryExpression, ctx: Context): [any, Context] => {
+        var [left, ctx]: [StructRuntime, Context] = this.findTraverseFunc(node.left, ctx)
+        var [right, ctx]: [StructRuntime, Context] = this.findTraverseFunc(node.right, ctx)
+
+        const handlers = [
+            /* Arithmetic Operations */
+            { operator: "+", handler: "Add" },
+            { operator: "-", handler: "Minus" },
+            { operator: "*", handler: "Mul" },
+            { operator: "**", handler: "Pow" },
+            { operator: "/", handler: "Div" },
+
+            /* Comparison Operations */
+            { operator: "==", handler: "EE" },
+            { operator: "!=", handler: "NE" },
+            { operator: ">", handler: "GT" },
+            { operator: ">=", handler: "GTE" },
+            { operator: "<", handler: "LT" },
+            { operator: "<=", handler: "LTE" },
+        ]
+
+        const handler = handlers.find(handler => handler.operator == node.operator.value)!.handler
+
+        if (!left.hasImplementedFunction(handler))
+            throw this.runtimeErrorCode(`Struct ${left.struct.id} does not implement '${handler}' for operator '${node.operator.value}'`, node.start, node.end)
+
+        const func = left.getImplementedFunction(handler)!
+
+        if (func instanceof NativeFunction) {
+            return func.onCall(this, ctx, [left, right]);
+        }
+        
+        const funcCtx = new Context(ctx);
+
+        if (func.parameters.length != 2) 
+            throw this.runtimeErrorCode(`Expected '${handler}' for operator '${node.operator.value}' to have 2 parameters, instead got ${func.parameters.length}`, 
+            func.parameters[0].start, func.parameters[func.parameters.length - 1].end
+        )
+        // The left hand side will always be correct so we dont need to check it
+        // Right Param
+        if (func.parameters[1].paramType != right.struct.id) {
+            throw this.runtimeErrorCode(`Expected right hand side to be '${func.parameters[1].paramType}' instead got '${right.struct.id}'`,
+                node.right.start, node.right.end
+            )
+        }
+
+        funcCtx.setVariable(func.parameters[0].id, left);
+        funcCtx.setVariable(func.parameters[1].id, right);
+
+        return this.findTraverseFunc(func.body, funcCtx);
+    }
+
+    private logicalExpression = (node: LogicalExpression, ctx: Context): [any, Context] => {
+        const left = this.findTraverseFunc(node.left, ctx)[0] as StructRuntime;
+        const right = this.findTraverseFunc(node.right, ctx)[0] as StructRuntime;
+
+        const handlers = [
+            { operator: "&&", handler: "And" },
+            { operator: "||", handler: "Or" }
+        ]
+
+        const handler = handlers.find(handler => handler.operator == node.operator.value)!.handler
+        if (!left.hasImplementedFunction(handler))
+            throw this.runtimeErrorCode(`Struct ${left.struct.id} does not implement '${handler}' for operator '${node.operator.value}'`, node.start, node.end)
+
+        const func = left.getImplementedFunction(handler)
+
+        if (func instanceof NativeFunction) {
+            return func.onCall(this, ctx, [left, right]);
+        }
+        throw this.runtimeError("F")
     }
 
     /* Primitives */
