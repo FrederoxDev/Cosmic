@@ -174,9 +174,7 @@ export class Parser {
         this.expectSymbol(null, "(")
         const parameters = this.FunctionParameters();
         this.expectSymbol(null, ")")
-        this.expectSymbol(null, "{")
         const block = this.BlockStatement()
-        this.expectSymbol(null, "}")
 
         return {
             type: "FunctionDeclaration",

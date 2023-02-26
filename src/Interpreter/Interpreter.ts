@@ -90,6 +90,7 @@ export class Interpreter {
 
             // Functions
             { type: "CallExpression", func: this.callExpression },
+            { type: "FunctionDeclaration", func: this.functionDeclaration },
 
             // Expressions
             { type: "VariableDeclaration", func: this.variableDeclaration },
@@ -206,6 +207,12 @@ export class Interpreter {
     }
 
     /* Functions */
+    private functionDeclaration = async (node: FunctionDefStatement, ctx: Context): Promise<[null, Context]> => {
+        var func = new Function(node.id, node.parameters, node.body);
+        ctx.setVariable(node.id, func);
+        return [null, ctx];
+    }
+
     private callExpression = async (node: CallExpression, ctx: Context): Promise<[null, Context]> => {
         var [callee, ctx] = await this.findTraverseFunc(node.callee, ctx);
 
