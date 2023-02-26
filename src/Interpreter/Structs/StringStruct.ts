@@ -5,6 +5,11 @@ import { Struct } from "../Primitives/Struct";
 import { parseBinaryArgsAssertType } from "./StructCommon";
 
 export const StringStruct = new Struct("String", [{name: "value", type: "stringLiteral"}], [
+    new NativeFunction("Add", async (interpreter: Interpreter, ctx: Context, args) => { 
+        const [left, right] = parseBinaryArgsAssertType<string>(interpreter, args, "String", "+");
+        return interpreter.primitiveString({ value: left + right }, ctx)
+    }),
+
     new NativeFunction("EE", async (interpreter: Interpreter, ctx: Context, args) => { 
         const [left, right] = parseBinaryArgsAssertType<number>(interpreter, args, "String", "==");
         return interpreter.primitiveBoolean({ value: left == right }, ctx)
