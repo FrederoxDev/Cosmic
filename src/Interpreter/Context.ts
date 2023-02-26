@@ -28,7 +28,7 @@ export class Context {
         else this.protectedData[key] = value;
     }
 
-    getProtectedData(key: string) {
+    getProtectedData(key: string): any {
         if (this.parent) return this.parent.getProtectedData(key);
         return this.protectedData[key];
     }

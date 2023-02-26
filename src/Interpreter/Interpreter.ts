@@ -6,7 +6,7 @@ import { StructRuntime } from "./Primitives/StructRuntime";
 import { BooleanStruct } from "./Structs/BooleanStruct";
 import { NumberStruct } from "./Structs/NumberStruct";
 import { StringStruct } from "./Structs/StringStruct";
-import { Atom, BinaryExpression, BlockStatement, CallExpression, FunctionDefStatement, LogicalExpression, MemberExpression, ReturnStatement, StructDefStatement, StructImplStatement, VariableDeclaration } from "../Parser"
+import { Atom, BinaryExpression, BlockStatement, CallExpression, FunctionDefStatement, IfStatement, LogicalExpression, MemberExpression, ReturnStatement, StructDefStatement, StructImplStatement, VariableDeclaration, WhileStatement } from "../Parser"
 import { Function } from "./Primitives/Function";
 
 export class Interpreter {
@@ -79,6 +79,8 @@ export class Interpreter {
         const types = [
             // Statements
             { type: "BlockStatement", func: this.blockStatement },
+            { type: "IfStatement", func: this.ifStatement },
+            { type: "WhileStatement", func: this.whileStatement },
 
             // Structs
             { type: "StructDeclaration", func: this.structDeclaration },
@@ -126,6 +128,37 @@ export class Interpreter {
         }
 
         // Returns null if no 'return' keyword in block evaluated
+        return [null, ctx];
+    }
+
+    private ifStatement = async (node: IfStatement, ctx: Context): Promise<[any, Context]> => {
+        var [test, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.test, ctx);
+        // Check it is a boolean
+        if (test.struct.id != "Boolean") throw this.runtimeErrorCode(
+            `If Statement test must be of type 'Boolean' instead got ${test.struct.id}`,
+            node.test.start, node.test.end
+        )
+        // Evaluated false
+        if (!test.selfCtx.getVariable("value").value) return [null, ctx];
+
+        // Evaluated true
+        var [_, ctx] = await this.findTraverseFunc(node.consequent, ctx);
+        return [null, ctx];
+    }
+
+    private whileStatement = async (node: WhileStatement, ctx: Context): Promise<[any, Context]> => {
+        while (true) {
+            var [test, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.test, ctx);
+            // Check it is a boolean
+            if (test.struct.id != "Boolean") throw this.runtimeErrorCode(
+                `If Statement test must be of type 'Boolean' instead got ${test.struct.id}`,
+                node.test.start, node.test.end
+            )
+            // Evaluated false
+            if (!test.selfCtx.getVariable("value").value) break;
+            var [_, ctx] = await this.findTraverseFunc(node.consequent, ctx);
+        }
+
         return [null, ctx];
     }
 

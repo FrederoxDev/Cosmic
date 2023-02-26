@@ -7,6 +7,7 @@ type LexerToken = { type: string; value: string; start: number; end: number; };
 export type StatementCommon = { type: string, start: number, end: number };
 export type BlockStatement = { body: StatementCommon[] } & StatementCommon;
 export type IfStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
+export type WhileStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
 export type FunctionDefStatement = { id: string, parameters: FunctionParameter[], body: BlockStatement } & StatementCommon;
 export type FunctionParameter = { id: string, paramType: string } & StatementCommon;
 export type CallExpression = {callee: StatementCommon, arguments: StatementCommon[]} & StatementCommon;
@@ -65,22 +66,34 @@ export class Parser {
      */
     public parse = () => {
         try {
-            return [this.BlockStatement(), null]
+            return [this.BlockStatement(true), null]
           }
           catch (e) {
             return [null, e]
         }
     }
 
-    private BlockStatement = (): BlockStatement => {
+    private BlockStatement = (topLevelFlag: boolean = false): BlockStatement => {
         var statements: StatementCommon[] = []
-        var token = this.tokens.shift()!;
-        const start = token.start
+        var start: number = 0;
+        var end: number = 0;
 
-        statements.push(this.Statement(token))
+        if (this.tokens[0].value === "{" || topLevelFlag) {
+            if (!topLevelFlag) start = this.expectSymbol(null, "{").start
+            start = this.tokens[0]!.start;
 
-        while (!["}", "endOfFile"].includes(this.tokens[0].value)) {
+            while (!["}", "endOfFile"].includes(this.tokens[0].value)) {
+                var token = this.tokens.shift()!;
+                end = token.end
+                statements.push(this.Statement(token))
+            }
+
+            if (!topLevelFlag) end = this.expectSymbol(null, "}").end;
+        }
+        else {
             var token = this.tokens.shift()!;
+            start = token.start
+            end = token.end
             statements.push(this.Statement(token))
         }
 
@@ -88,14 +101,14 @@ export class Parser {
             type: "BlockStatement",
             body: statements,
             start,
-            end: token.end
+            end
         }
     }
 
     private Statement = (_token: LexerToken | null): StatementCommon => {
         const token = _token ?? this.tokens.shift()!;
 
-        if (["if", "fn", "struct", "impl"].includes(token.value)) return this.CompoundStatement(token);
+        if (["if", "fn", "struct", "impl", "while"].includes(token.value)) return this.CompoundStatement(token);
 
         if (["let", "return"].includes(token.value)) {
             let stmt = this.SimpleStatement(token)
@@ -114,6 +127,7 @@ export class Parser {
 
         if (token.value == "if") return this.IfStatement(token)
         else if (token.value == "fn") return this.FunctionDefStatement(token)
+        else if (token.value == "while") return this.WhileStatement(token)
         else if (token.value == "struct") return this.StructDefStatement(token)
         else if (token.value == "impl") return this.StructImplStatement(token)
 
@@ -125,6 +139,7 @@ export class Parser {
         this.expectSymbol(null, "(")
         const test = this.Expression(null)
         this.expectSymbol(null, ")")
+
         const consequent = this.BlockStatement()
 
         return {
@@ -132,6 +147,23 @@ export class Parser {
             test,
             consequent: consequent,
             start: ifKeyword.start,
+            end: consequent.end
+        }
+    }
+
+    private WhileStatement = (_token: LexerToken | null): WhileStatement => {
+        const whileKeyword = _token ?? this.tokens.shift()!;
+        this.expectSymbol(null, "(")
+        const test = this.Expression(null)
+        this.expectSymbol(null, ")")
+
+        const consequent = this.BlockStatement()
+
+        return {
+            type: "WhileStatement",
+            test,
+            consequent: consequent,
+            start: whileKeyword.start,
             end: consequent.end
         }
     }
