@@ -229,7 +229,7 @@ export class Interpreter {
         }
 
         if (callee instanceof Function) {
-            const funcCtx = new Context(ctx);
+            var funcCtx = new Context(ctx);
 
             // Lazy-Check if number of parameters matches arguments
             if (callee.parameters.length != node.arguments.length) {
@@ -248,7 +248,8 @@ export class Interpreter {
                 funcCtx.setVariable(param.id, arg);
             }
 
-            return await this.findTraverseFunc(callee.body, funcCtx);
+            var [value, funcCtx] = await this.findTraverseFunc(callee.body, funcCtx);
+            return [value, ctx];
         }
 
         throw this.runtimeErrorCode(`Tried to call non Function`, node.start, node.end)
