@@ -14,7 +14,7 @@ else {
 }
 ```
 
-## Movement
+## Implements
 
 ### `Forward`
 Moves the turtle forward one block in the direction it is facing. 
@@ -32,10 +32,35 @@ The turtle will turn right, the turtle remains on the same block.
 - Parameters - `None`
 - Returns - `void`
 
-
-## Inspecting
+### `Inspect`
+The turtle will get the ID of the block in the direction it is facing
+- Parameters - `None`
+- Returns - `String`
 
 ### `InspectDown`
 The turtle will get the ID of the block below it
 - Parameters - `None`
 - Returns - `String`
+
+### `InspectUp`
+The turtle will get the ID of the block above it
+- Parameters - `None`
+- Returns - `String`
+
+### `Dig`
+The turtle will mine the block in the direction it is facing.
+It will not mine unbreakable blocks.
+- Parameters - `None`
+- Returns `void`
+
+### `DigUp`
+The turtle will mine the block above.
+It will not mine unbreakable blocks.
+- Parameters - `None`
+- Returns `void`
+
+### `DigUp`
+The turtle will mine the block below.
+It will not mine unbreakable blocks.
+- Parameters - `None`
+- Returns `void`
