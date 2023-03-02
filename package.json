@@ -2,10 +2,7 @@
   "name": "coslang",
   "version": "1.0.0",
   "scripts": {
-    "shell": "ts-node Shell.ts",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "shell": "ts-node Shell.ts"
   },
   "keywords": [],
   "author": "",
