@@ -9,6 +9,7 @@ import { StringStruct } from "./src/Interpreter/Structs/StringStruct";
 import { NativeFunction } from "./src/Interpreter/Primitives/NativeFunction";
 import { StructRuntime } from "./src/Interpreter/Primitives/StructRuntime";
 import { Struct } from "./src/Interpreter/Primitives/Struct";
+import { ArrayStruct } from "./src/Interpreter/Structs/ArrayStruct";
 
 if (!existsSync("./err")) mkdirSync("./err");
 const input = readFileSync("./input.cos", { encoding: 'utf-8' });
@@ -31,6 +32,7 @@ const globals = new Context(undefined)
 globals.setVariable("Number", NumberStruct)
 globals.setVariable("Boolean", BooleanStruct)
 globals.setVariable("String", StringStruct)
+globals.setVariable("Array", ArrayStruct)
 
 globals.setVariable("log", new NativeFunction("log", async (interpreter, ctx, args) => {
     var out: string[] = [];
@@ -63,12 +65,6 @@ globals.setVariable("log", new NativeFunction("log", async (interpreter, ctx, ar
             console.log("Log no inspect", await arg)
         }
     }
-
-    console.log("Starting waiting")
-    await new Promise(resolve => {
-        setTimeout(resolve, 3000);
-    });
-    console.log("Finished Waiting")
 
     console.log("\x1b[90m>\x1b[37m", ...out)
     return [null, ctx];

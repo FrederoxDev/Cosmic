@@ -4,7 +4,7 @@ import { NativeFunction } from "../Primitives/NativeFunction";
 import { Struct } from "../Primitives/Struct";
 import { parseBinaryArgsAssertType } from "./StructCommon";
 
-export const NumberStruct = new Struct("Number", [{name: "value", type: "numberLiteral"}], [
+export const NumberStruct = new Struct("Number", [], [
     new NativeFunction("Add", async (interpreter: Interpreter, ctx: Context, args) => { 
         const [left, right] = parseBinaryArgsAssertType<number>(interpreter, args, "Number", "+");
         return interpreter.primitiveNumber({ value: left + right }, ctx)

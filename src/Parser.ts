@@ -212,11 +212,11 @@ export class Parser {
         return parameters;
     }
 
-    private Arguments = (): any[] => {
+    private Arguments = (closingValue = ")"): any[] => {
         var parameters: any[] = []
 
         // No params passed
-        if (this.tokens[0].value == ")") return []
+        if (this.tokens[0].value == closingValue) return []
         parameters.push(this.Expression(null))
 
         while (this.tokens[0].value == ",") {
@@ -449,7 +449,7 @@ export class Parser {
     private Primary = (_token: LexerToken | null): any => {
         let left = this.Atom(_token ?? this.tokens.shift()!);
 
-        while ([".", "(", "{", "::"].includes(this.tokens[0]?.value)) {
+        while ([".", "(", "{", "::", "["].includes(this.tokens[0]?.value)) {
             let op = this.tokens.shift()!;
 
             if (op.value == ".") {
@@ -460,6 +460,18 @@ export class Parser {
                     property: right,
                     start: left.start,
                     end: right.end
+                }
+            }
+
+            else if (op.value == "[") {
+                let index = this.Expression(null)
+                let end = this.expectSymbol(null, "]")
+                left = {
+                    type: "IndexExpression",
+                    object: left,
+                    index,
+                    start: left.start,
+                    end: end.end
                 }
             }
 
@@ -526,7 +538,7 @@ export class Parser {
 
         // Literally just ignore
         if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression",
-            "StructExpression", "StructMethodAccessor"
+            "StructExpression", "StructMethodAccessor", "Array", "IndexExpression"
         ].includes(token.type)) return token;
 
         if (token.type == "numberLiteral") 
@@ -547,8 +559,13 @@ export class Parser {
             let next = this.tokens.shift()!;
             if (next.value != ")") throw new Error(`Expected ')' instead got ${next.type}`)
             return expr
-        };
+        }
+        else if (token.value == "[") {
+            let args = this.Arguments("]");
+            let end = this.expectSymbol(null, "]")
+            return { type: "Array", value: args, start: token.start, end: end.end }
+        }
 
-        throw this.parseError(`Expected type of [numberLiteral, stringLiteral, BooleanLiteral, identifier] instead got (type: '${token.type}', value: '${token.value}')`, token.start, token.end)
+        throw this.parseError(`Expected type of [numberLiteral, stringLiteral, BooleanLiteral, identifier, array] instead got (type: '${token.type}', value: '${token.value}')`, token.start, token.end)
     }
 }

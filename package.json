@@ -10,9 +10,7 @@
   "description": "",
   "devDependencies": {
     "@types/node": "^18.14.0",
-    "typescript": "^4.9.5",
-    "vitepress": "^1.0.0-alpha.48",
-    "vue": "^3.2.47"
+    "typescript": "^4.9.5"
   },
   "module": "es2022"
 }

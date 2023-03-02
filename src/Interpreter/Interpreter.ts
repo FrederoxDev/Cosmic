@@ -6,7 +6,7 @@ import { StructRuntime } from "./Primitives/StructRuntime";
 import { BooleanStruct } from "./Structs/BooleanStruct";
 import { NumberStruct } from "./Structs/NumberStruct";
 import { StringStruct } from "./Structs/StringStruct";
-import { Atom, BinaryExpression, BlockStatement, CallExpression, FunctionDefStatement, IfStatement, LogicalExpression, MemberExpression, ReturnStatement, StructDefStatement, StructImplStatement, VariableDeclaration, WhileStatement } from "../Parser"
+import { Atom, BinaryExpression, BlockStatement, CallExpression, FunctionDefStatement, IfStatement, LogicalExpression, MemberExpression, ReturnStatement, StatementCommon, StructDefStatement, StructImplStatement, VariableDeclaration, WhileStatement } from "../Parser"
 import { Function } from "./Primitives/Function";
 
 export class Interpreter {
@@ -97,12 +97,14 @@ export class Interpreter {
             { type: "MemberExpression", func: this.memberExpression },
             { type: "BinaryExpression", func: this.binaryExpression },
             { type: "LogicalExpression", func: this.logicalExpression },
+            { type: "IndexExpression", func: this.indexExpression },
 
             // Primitives 
             { type: "Identifier", func: this.identifier },
             { type: "Number", func: this.primitiveNumber },
             { type: "Boolean", func: this.primitiveBoolean },
             { type: "String", func: this.primitiveString },
+            { type: "Array", func: this.primitiveArray }
         ]
 
         // Find the internal function for interpreting a node
@@ -274,6 +276,22 @@ export class Interpreter {
         }
     }
 
+    private indexExpression = async (node: any, ctx: Context): Promise<[any, Context]> => {
+        var [object, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.object, ctx);
+        var [index, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.index, ctx);
+
+        if (!object.hasImplementedFunction("Index"))
+            throw this.runtimeErrorCode(`Struct ${object.struct.id} does not implement "Index"`, node.start, node.end)
+
+        const func = object.getImplementedFunction("Index")!
+
+        if (func instanceof NativeFunction) {
+            return await func.onCall(this, ctx, [object, index]);
+        }
+
+        throw this.interpreterError("indexExpression has not been implemented for none native functions")
+    }
+
     private binaryExpression = async (node: BinaryExpression, ctx: Context): Promise<[any, Context]> => {
         var [left, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.left, ctx)
         var [right, ctx]: [StructRuntime, Context] = await this.findTraverseFunc(node.right, ctx)
@@ -380,6 +398,23 @@ export class Interpreter {
         const structCtx = new Context(undefined);
 
         structCtx.setVariable("value", new Literal<boolean>(node.value))
+        struct.nativeImplements.forEach(nativeFunc => structCtx.setVariable(nativeFunc.id, nativeFunc));
+
+        return [new StructRuntime(struct, structCtx), ctx]
+    }
+
+    public primitiveArray = async (node: { value: StatementCommon[] }, ctx: Context): Promise<[StructRuntime, Context]> => {
+        var values: any[] = []
+
+        for (var i = 0; i < node.value.length; i++) {
+            var [value, ctx] = await this.findTraverseFunc(node.value[i], ctx)
+            values.push(value);
+        }
+
+        const struct = this.globals.getVariable("Array") as Struct;
+        const structCtx = new Context(undefined);
+
+        structCtx.setVariable("value", new Literal<any[]>(values))
         struct.nativeImplements.forEach(nativeFunc => structCtx.setVariable(nativeFunc.id, nativeFunc));
 
         return [new StructRuntime(struct, structCtx), ctx]
