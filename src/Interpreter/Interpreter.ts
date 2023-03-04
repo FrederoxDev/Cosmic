@@ -9,6 +9,12 @@ import { StringStruct } from "./Structs/StringStruct";
 import { Atom, BinaryExpression, BlockStatement, CallExpression, FunctionDefStatement, IfStatement, LogicalExpression, MemberExpression, ReturnStatement, StatementCommon, StructDefStatement, StructImplStatement, VariableDeclaration, WhileStatement } from "../Parser"
 import { Function } from "./Primitives/Function";
 
+export function createStructInstance(struct: Struct) {
+    const structCtx = new Context(undefined);
+    struct.nativeImplements.forEach(nativeFunc => structCtx.setVariable(nativeFunc.id, nativeFunc));
+    return new StructRuntime(struct, structCtx);
+}
+
 export class Interpreter {
     ast: any;
     code: string;
