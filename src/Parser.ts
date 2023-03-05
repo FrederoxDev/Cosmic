@@ -1,4 +1,6 @@
+// @ts-ignore
 import { Function } from "./Interpreter/Primitives/Function";
+// @ts-ignore
 import { Field } from "./Interpreter/Primitives/Struct";
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
@@ -21,6 +23,8 @@ export type BinaryExpression = { left: StatementCommon, operator: LexerToken, ri
 export type UnaryExpression = { argument: UnaryExpression, operator: string } & StatementCommon;
 export type Atom<T> = { value: T } & StatementCommon
 export type MemberExpression = { object: StatementCommon, property: LexerToken } & StatementCommon
+export type StructMethodAccessor = { struct: StatementCommon, method: Identifier } & StatementCommon
+export type Identifier = { value: string } & StatementCommon
 
 export class Parser {
     tokens: LexerToken[];

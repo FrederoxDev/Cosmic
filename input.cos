@@ -1,2 +1,8 @@
-let x = [12, 3, 4];
-log(x[0], x[1], x[2]);
+//// let vec = Vec3::From(1, 2, 3);
+// log(vec.x, vec.y, vec.z);
+// vec.Modify();
+// log(vec.x, vec.y, vec.z);
+// vec.x > 4;
+
+log(1 + 2);
+log(2 + 1);

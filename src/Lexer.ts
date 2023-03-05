@@ -8,9 +8,9 @@ const symbolRegex = /(::|->|#|\[|\]|\(|\)|\{|\}|,|;|=|\.|:|&)/;
 const binaryOpRegex = /(\*\*|\+|\-|\*|\/|%|==|<=|<|>=|>|!=|&&|\|\|)/
 const unaryOpRegex = /(!)/
 const multiLineComment = /\/\*.*\*\//s
+const commentRegex = /\/\/.*/m
 
 const tokenTypes = [
-  { type: 'multiLineComment', regex: multiLineComment },
   { type: 'whitespace', regex: whitespaceRegex },
   { type: 'BooleanLiteral', regex: BooleanLiteralRegex },
   { type: 'numberLiteral', regex: numberLiteralRegex },
@@ -29,6 +29,12 @@ export const Tokenize = (input: string) => {
   let position = 0;
 
   while (position < input.length) {
+    const commentMatch = commentRegex.exec(input.slice(position));
+    if (commentMatch !== null) {
+      position += commentMatch[0].length + 2
+      continue;
+    }
+
     let match: RegExpExecArray | null = null;
 
     for (const tokenType of tokenTypes) {
@@ -39,7 +45,7 @@ export const Tokenize = (input: string) => {
         const start = position;
         const end = start + match[0].length;
 
-        if (!["whitespace", "multiLineComment"].includes(tokenType.type)) {
+        if (!["whitespace"].includes(tokenType.type)) {
           tokens.push({
             type: tokenType.type,
             value: match[0],
