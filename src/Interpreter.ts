@@ -1,5 +1,5 @@
 import { Context } from "./Context";
-import { BlockStatement, CallExpression, Identifier, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration } from "./Parser";
+import { BinaryExpression, BlockStatement, CallExpression, Identifier, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration } from "./Parser";
 import { Number } from "./Primitives/Number";
 import { NativeFunction } from "./Struct/NativeFunction";
 import { StructInstance } from "./Struct/StructInstance";
@@ -36,7 +36,7 @@ export class Interpreter {
      * Used for internal issues with the interpreter
      * @returns An Error Object
      */
-    public internalError = (message: string): Error => {
+    public static internalError = (message: string): Error => {
         const err = new Error(`${message}`)
         err.stack = ""
         err.name = "InterpreterError"
@@ -54,10 +54,11 @@ export class Interpreter {
             { type: "StructMethodAccessor", func: this.structMethodAccessor },
             { type: "Identifier", func: this.identifier },
             { type: "MemberExpression", func: this.memberExpression },
-            { type: "Number", func: this.number }
+            { type: "Number", func: this.number },
+            { type: "BinaryExpression", func: this.binaryExpression }
         ];
         const type = types.find(type => type.type == node.type);
-        if (type == undefined) throw this.internalError(`Traverse function does not exist for type '${node.type}'`);
+        if (type == undefined) throw Interpreter.internalError(`Traverse function does not exist for type '${node.type}'`);
 
         // Rebind the function to the interpreter
         const result = await (type.func.bind(this)(node, ctx));
@@ -75,6 +76,46 @@ export class Interpreter {
 
         return [null, ctx];
     }
+    //#endregion
+
+    //#region Expressions
+    private binaryExpression = async (node: BinaryExpression, ctx: Context): Promise<[any, Context]> => {
+        var [left, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.left, ctx);
+        var [right, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.right, ctx);
+
+        const handlers = [
+            /* Arithmetic Operations */
+            { operator: "+", handler: "Add" },
+            { operator: "-", handler: "Minus" },
+            { operator: "*", handler: "Mul" },
+            { operator: "**", handler: "Pow" },
+            { operator: "/", handler: "Div" },
+
+            /* Comparison Operations */
+            { operator: "==", handler: "EE" },
+            { operator: "!=", handler: "NE" },
+            { operator: ">", handler: "GT" },
+            { operator: ">=", handler: "GTE" },
+            { operator: "<", handler: "LT" },
+            { operator: "<=", handler: "LTE" },
+        ]
+
+        const methodName = handlers.find(handler => handler.operator == node.operator.value)!.handler;
+        if (!left.hasImplementedMethod(methodName))
+            throw this.runtimeErrorCode(
+                `${left.structType.id} does not implement '${methodName}' for operator '${node.operator.value}'`,
+                node.start,
+                node.end
+            )
+
+        const method = left.getImplementedMethod(methodName);
+
+        if (method instanceof NativeFunction) {
+            return await method.onCall(this, ctx, node.start, node.end, [left, right])
+        }
+
+        throw Interpreter.internalError("Operator overloading not implemented for Non-Native Types")
+    } 
     //#endregion
 
     //#region Variables
@@ -104,11 +145,11 @@ export class Interpreter {
 
         // Native Function Execution
         if (callee instanceof NativeFunction) {
-            var [value, ctx] = await callee.onCall(this, ctx, args);
+            var [value, ctx] = await callee.onCall(this, ctx, node.start, node.end, args);
             return [value, ctx];
         }
 
-        throw this.internalError("Calling functions not yet implemented!");
+        throw Interpreter.internalError("Calling functions not yet implemented!");
     }
     //#endregion
 

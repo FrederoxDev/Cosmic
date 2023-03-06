@@ -32,7 +32,7 @@ if (parseError) {
 writeFileSync('./err/ast.json', JSON.stringify(ast, null, 2), { flag: "w" });
 
 const Vec3 = new StructType("Vec3", [
-    new NativeFunction("From", async (interpreter, context, args): Promise<[any, Context]> => {
+    new NativeFunction("From", async (interpreter, context, start, end, args): Promise<[any, Context]> => {
         const instance = new StructInstance(Vec3);
         instance.selfCtx.setSymbol("x", args[0]);
         instance.selfCtx.setSymbol("y", args[1]);
@@ -40,9 +40,9 @@ const Vec3 = new StructType("Vec3", [
         return [instance, context];
     }),
 
-    new NativeFunction("Modify", async (interpreter, context, args): Promise<[any, Context]> => {
+    new NativeFunction("Modify", async (interpreter, context, start, end, args): Promise<[any, Context]> => {
         var selfRef = context.stack.pop() as StructInstance;
-        if (!(selfRef instanceof StructInstance)) throw interpreter.internalError("Modify can only be ran on an instance of a Vec3")
+        if (!(selfRef instanceof StructInstance)) throw Interpreter.internalError("Modify can only be ran on an instance of a Vec3")
 
         var [val, context] = await interpreter.number({value: 3}, context);
 
@@ -58,7 +58,7 @@ const Vec3 = new StructType("Vec3", [
 const globals = new Context()
 globals.setSymbol("Vec3", Vec3)
 
-globals.setSymbol("log", new NativeFunction("log", async (interpreter, ctx, args) => {
+globals.setSymbol("log", new NativeFunction("log", async (interpreter, ctx, start, end, args) => {
     var args = args.map((arg: any) => {
         if (arg instanceof StructInstance) {
             return arg.selfCtx.getProtected("value")
