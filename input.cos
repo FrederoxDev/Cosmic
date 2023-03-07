@@ -1,6 +1,8 @@
-// log(vec.x, vec.y, vec.z);
-// vec.Modify();
-// log(vec.x, vec.y, vec.z);
-// vec.x > 4;
+let vec = Vec3::From(1, 1, 1);
+vec.Modify();
+vec.x = 34;
 
-1.Add(2, 3);
+let x = 2;
+x = 3;
+
+log(vec.x, x);

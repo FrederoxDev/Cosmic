@@ -41,7 +41,7 @@ const Vec3 = new StructType("Vec3", [
     }),
 
     new NativeFunction("Modify", async (interpreter, context, start, end, args): Promise<[any, Context]> => {
-        var selfRef = context.stack.pop() as StructInstance;
+        var selfRef = context.stack.pop().node as StructInstance;
         if (!(selfRef instanceof StructInstance)) throw Interpreter.internalError("Modify can only be ran on an instance of a Vec3")
 
         var [val, context] = await interpreter.number({value: 3}, context);

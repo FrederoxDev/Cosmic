@@ -13,5 +13,11 @@ export const Number = new StructType("Number", [
         const left = getNumberLiteral(helper.expectType(0, "Number"));
         const right = getNumberLiteral(helper.expectType(1, "Number"));
         return interpreter.number({ value: left + right }, ctx);
+    }),
+
+    new NativeFunction("Negative", async (interpreter, ctx, start, end, args) => {
+        const helper = new NativeFunctionHelper(interpreter, args, 1, start, end);
+        const self = getNumberLiteral(helper.expectType(0, "Number"));
+        return interpreter.number({ value: -self }, ctx);
     })
 ])
