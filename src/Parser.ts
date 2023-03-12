@@ -25,6 +25,8 @@ export type Atom<T> = { value: T } & StatementCommon
 export type MemberExpression = { object: StatementCommon, property: LexerToken } & StatementCommon
 export type StructMethodAccessor = { struct: StatementCommon, method: Identifier } & StatementCommon
 export type Identifier = { value: string } & StatementCommon
+export type MemberAssign = { object: StatementCommon, value: LexerToken } & StatementCommon
+export type Assign = { left: Identifier, value: LexerToken } & StatementCommon
 
 export class Parser {
     tokens: LexerToken[];
@@ -453,6 +455,22 @@ export class Parser {
     private Primary = (_token: LexerToken | null): any => {
         let left = this.Atom(_token ?? this.tokens.shift()!);
 
+        if (["="].includes(this.tokens[0]?.value)) {
+            let op = this.tokens.shift()!;
+
+            if (op.value == "=") {
+                var right = this.Expression(null);
+                left = {
+                    type: "Assign",
+                    left: left,
+                    value: right,
+                    start: left.start,
+                    end: right.end
+                }
+                return left;
+            }
+        }
+
         while ([".", "(", "{", "::", "["].includes(this.tokens[0]?.value)) {
             let op = this.tokens.shift()!;
 
@@ -534,6 +552,21 @@ export class Parser {
             }
         }
 
+        if (["="].includes(this.tokens[0]?.value)) {
+            let op = this.tokens.shift()!;
+
+            if (op.value == "=") {
+                var right = this.Expression(null);
+                left = {
+                    type: "MemberAssign",
+                    object: left,
+                    value: right,
+                    start: left.start,
+                    end: right.end
+                }
+            }
+        }
+
         return left
     }
 
@@ -542,7 +575,7 @@ export class Parser {
 
         // Literally just ignore
         if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression",
-            "StructExpression", "StructMethodAccessor", "Array", "IndexExpression"
+            "StructExpression", "StructMethodAccessor", "Array", "IndexExpression", "MemberAssign", "Assign"
         ].includes(token.type)) return token;
 
         if (token.type == "numberLiteral") 
