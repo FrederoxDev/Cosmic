@@ -1,6 +1,8 @@
 import { Context } from "./Context";
-import { Assign, BinaryExpression, BlockStatement, CallExpression, Identifier, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration } from "./Parser";
+import { BinaryExpression, BlockStatement, CallExpression, Identifier, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration } from "./Parser";
+import { Boolean } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
+import { String } from "./Primitives/String";
 import { NativeFunction } from "./Struct/NativeFunction";
 import { StructInstance } from "./Struct/StructInstance";
 import { StructType } from "./Struct/StructType";
@@ -29,6 +31,7 @@ export class Interpreter {
 
         console.warn(line);
         console.warn(`${" ".repeat(startIdx - lineStart)}${"^".repeat(endIdx - startIdx)}`);
+        console.warn(message)
         return err;
     }
 
@@ -42,7 +45,6 @@ export class Interpreter {
         err.name = "InterpreterError"
         return err;
     }
-    //#endregion
 
     /**
      * Will find the accosiated traverse function for any node type
@@ -55,12 +57,10 @@ export class Interpreter {
             { type: "StructMethodAccessor", func: this.structMethodAccessor },
             { type: "Identifier", func: this.identifier },
             { type: "MemberExpression", func: this.memberExpression },
-            { type: "MemberAssign", func: this.memberAssign },
-            { type: "Assign", func: this.assign },
             { type: "Number", func: this.number },
-            { type: "BinaryExpression", func: this.binaryExpression },
-            { type: "LogicalExpression", func: this.binaryExpression },
-            { type: "UnaryExpression", func: this.unaryExpression }
+            { type: "String", func: this.string },
+            { type: "Boolean", func: this.boolean },
+            { type: "BinaryExpression", func: this.binaryExpression }
         ];
         const type = types.find(type => type.type == node.type);
         if (type == undefined) throw Interpreter.internalError(`Traverse function does not exist for type '${node.type}'`);
@@ -69,7 +69,7 @@ export class Interpreter {
         const result = await (type.func.bind(this)(node, ctx));
         return result;
     }
-    
+    //#endregion
 
     //#region Statements
     private blockStatement = async (node: BlockStatement, ctx: Context): Promise<[any, Context]> => {
@@ -103,8 +103,6 @@ export class Interpreter {
             { operator: ">=", handler: "GTE" },
             { operator: "<", handler: "LT" },
             { operator: "<=", handler: "LTE" },
-            { operator: "&&", handler: "And" },
-            { operator: "||", handler: "Or" }
         ]
 
         const methodName = handlers.find(handler => handler.operator == node.operator.value)!.handler;
@@ -123,33 +121,6 @@ export class Interpreter {
 
         throw Interpreter.internalError("Operator overloading not implemented for Non-Native Types")
     } 
-
-    private unaryExpression = async (node: UnaryExpression, ctx: Context): Promise<[any, Context]> => {
-        var [right, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.argument, ctx);
-
-        const handlers = [
-            /* Arithmetic Operations */
-            { operator: "!", handler: "Not" },
-            { operator: "-", handler: "Negative" },
-        ]
-
-        const methodName = handlers.find(handler => handler.operator == node.operator)!.handler;
-
-        if (!right.hasImplementedMethod(methodName))
-            throw this.runtimeErrorCode(
-                `${right.structType.id} does not implement '${methodName}' for operator '${node.operator}'`,
-                node.start,
-                node.end
-            )
-
-        const method = right.getImplementedMethod(methodName);
-
-        if (method instanceof NativeFunction) {
-            return await method.onCall(this, ctx, node.start, node.end, [right])
-        }
-
-        throw Interpreter.internalError("Operator overloading not implemented for Non-Native Types")
-    }
     //#endregion
 
     //#region Variables
@@ -159,29 +130,8 @@ export class Interpreter {
         return [null, ctx];
     }
 
-    private assign = async (node: Assign, ctx: Context): Promise<[any, Context]> => {
-        if (node.left.type != "Identifier") throw this.runtimeErrorCode(
-            `Can only assign to Identifier instead got ${node.left.type}`,
-            node.start,
-            node.end
-        )
-        
-        if (ctx.getSymbol(node.left.value) == undefined) {
-            throw this.runtimeErrorCode(
-                `'${node.left.value}' is defined in the current context`,
-                node.start,
-                node.end
-            )
-        }
-
-        var [value, ctx] = await this.findTraverseFunc(node.value, ctx); 
-        ctx.setSymbol(node.left.value, value);
-        return [null, ctx]
-    }
-
     private identifier = async (node: Identifier, ctx: Context): Promise<[any, Context]> => {
         const value = ctx.getSymbol<any>(node.value);
-        ctx.stack.push({ node: value, identifier: node.value })
         if (value == undefined) throw this.runtimeErrorCode(`${node.value} does not exist in this current context`, node.start, node.end)
         return [value, ctx];
     }
@@ -214,7 +164,7 @@ export class Interpreter {
         const nativeFunc = struct.nativeMethods.find(method => method.id == node.method.value);
 
         // Push the struct to the stack so that it can be accessed in the nativeFunction
-        ctx.stack.push({node: struct, value: node.struct});
+        ctx.stack.push(struct);
 
         return [nativeFunc, ctx];
     }
@@ -225,24 +175,26 @@ export class Interpreter {
         if (value == null) 
             throw this.runtimeErrorCode(`'${node.property.value}' does not exist on struct '${object.structType.id}'`, node.start, node.end);
 
-        ctx.stack.push({ node: object, value: node.property.value });
+        ctx.stack.push(object);
         return [value, ctx];
-    }
-
-    private memberAssign = async (node: MemberAssign, ctx: Context): Promise<[any, Context]> => {
-        await this.findTraverseFunc(node.object, ctx);
-        var [value, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.value, ctx);
-        var identifier = ctx.stack.pop();
-        var object = ctx.stack.pop();
-
-        object.node.selfCtx.setSymbol(identifier.value, value);
-        return [null, ctx]
     }
     //#endregion
 
     //#region Primitives
     public number = async (node: { value: number }, ctx: Context): Promise<[any, Context]> => {
         const instance = new StructInstance(Number);
+        instance.selfCtx.setProtected("value", node.value);
+        return [instance, ctx];
+    }
+
+    public string = async (node: { value: string }, ctx: Context): Promise<[any, Context]> => {
+        const instance = new StructInstance(String);
+        instance.selfCtx.setProtected("value", node.value);
+        return [instance, ctx];
+    }
+
+    public boolean = async (node: { value: boolean }, ctx: Context): Promise<[any, Context]> => {
+        const instance = new StructInstance(Boolean);
         instance.selfCtx.setProtected("value", node.value);
         return [instance, ctx];
     }
