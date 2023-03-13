@@ -1,6 +1,6 @@
 import { Context } from "./Context";
-import { Assign, BinaryExpression, BlockStatement, CallExpression, Identifier, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration } from "./Parser";
-import { Boolean } from "./Primitives/Boolean";
+import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, Identifier, IfStatement, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
+import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
 import { String } from "./Primitives/String";
 import { NativeFunction } from "./Struct/NativeFunction";
@@ -62,7 +62,11 @@ export class Interpreter {
             { type: "Boolean", func: this.boolean },
             { type: "BinaryExpression", func: this.binaryExpression },
             { type: "LogicalExpression", func: this.binaryExpression },
-            { type: "UnaryExpression", func: this.unaryExpression }
+            { type: "UnaryExpression", func: this.unaryExpression },
+            { type: "IfStatement", func: this.ifStatement },
+            { type: "WhileStatement", func: this.whileStatement },
+            { type: "Assign", func: this.assign },
+            { type: "BreakExpression", func: this.breakExpression }
         ];
         const type = types.find(type => type.type == node.type);
         if (type == undefined) throw Interpreter.internalError(`Traverse function does not exist for type '${node.type}'`);
@@ -77,8 +81,47 @@ export class Interpreter {
     private blockStatement = async (node: BlockStatement, ctx: Context): Promise<[any, Context]> => {
         for (var i = 0; i < node.body.length; i++) {
             const statement = node.body[i];
-            var [_, ctx] = await this.findTraverseFunc(statement, ctx);
+            var [result, ctx] = await this.findTraverseFunc(statement, ctx);
+
+            if (result?.type == "BreakExpression") {
+                return [result, ctx];
+            }
             ctx.stack = []
+        }
+
+        return [null, ctx];
+    }
+
+    private ifStatement = async (node: IfStatement, ctx: Context): Promise<[any, Context]> => {
+        var [test, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.test, ctx);
+        if (test.structType.id != "Boolean") throw this.runtimeErrorCode(
+            `If Test Statement must resolve to type of Boolean, instead got ${test.structType.id}`,
+            node.test.start,
+            node.test.end
+        )
+        const value = getBooleanLiteral(test);
+
+        if (value) {
+            var [result, ctx] = await this.findTraverseFunc(node.consequent, ctx);
+            return [result, ctx];
+        }
+
+        return [null, ctx];
+    }
+
+    private whileStatement = async (node: WhileStatement, ctx: Context): Promise<[any, Context]> => {
+        while (true) {
+            var [test, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.test, ctx);
+            if (test.structType.id != "Boolean") throw this.runtimeErrorCode(
+                `If Test Statement must resolve to type of Boolean, instead got ${test.structType.id}`,
+                node.test.start,
+                node.test.end
+            )
+            const value = getBooleanLiteral(test);
+            if (!value) break;
+            
+            var [result, ctx] = await this.findTraverseFunc(node.consequent, ctx);
+            if (result?.type == "BreakExpression") break;
         }
 
         return [null, ctx];
@@ -124,7 +167,7 @@ export class Interpreter {
         }
 
         throw Interpreter.internalError("Operator overloading not implemented for Non-Native Types")
-    } 
+    }
 
     private unaryExpression = async (node: UnaryExpression, ctx: Context): Promise<[any, Context]> => {
         var [right, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.argument, ctx);
@@ -151,6 +194,10 @@ export class Interpreter {
         }
 
         throw Interpreter.internalError("Operator overloading not implemented for Non-Native Types")
+    }
+
+    private breakExpression = async (node: BreakExpression, ctx: Context): Promise<[any, Context]> => {
+        return [node, ctx];
     }
     //#endregion
 
@@ -182,7 +229,7 @@ export class Interpreter {
             )
         }
 
-        var [value, ctx] = await this.findTraverseFunc(node.value, ctx); 
+        var [value, ctx] = await this.findTraverseFunc(node.value, ctx);
         ctx.setSymbol(node.left.value, value);
         return [null, ctx]
     }
@@ -215,7 +262,7 @@ export class Interpreter {
         const nativeFunc = struct.nativeMethods.find(method => method.id == node.method.value);
 
         // Push the struct to the stack so that it can be accessed in the nativeFunction
-        ctx.stack.push({node: struct, value: node.struct});
+        ctx.stack.push({ node: struct, value: node.struct });
 
         return [nativeFunc, ctx];
     }
@@ -223,7 +270,7 @@ export class Interpreter {
     private memberExpression = async (node: MemberExpression, ctx: Context): Promise<[any, Context]> => {
         var [object, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.object, ctx);
         const value = object.selfCtx.getSymbol(node.property.value);
-        if (value == null) 
+        if (value == null)
             throw this.runtimeErrorCode(`'${node.property.value}' does not exist on struct '${object.structType.id}'`, node.start, node.end);
 
         ctx.stack.push({ node: object, value: node.property.value });

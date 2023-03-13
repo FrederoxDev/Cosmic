@@ -18,6 +18,7 @@ export type StructDefStatement = { id: string, fields: Field[] } & StatementComm
 export type StructImplStatement = { structId: string, functions: FunctionDefStatement[] } & StatementCommon;
 export type VariableDeclaration = { id: string, init: StatementCommon } & StatementCommon;
 export type ReturnStatement = { value: StatementCommon | null } & StatementCommon;
+export type BreakStatement = { value: StatementCommon | null } & StatementCommon;
 export type LogicalExpression = { left: StatementCommon, operator: LexerToken, right: StatementCommon } & StatementCommon;
 export type BinaryExpression = { left: StatementCommon, operator: LexerToken, right: StatementCommon } & StatementCommon;
 export type UnaryExpression = { argument: UnaryExpression, operator: string } & StatementCommon;
@@ -116,7 +117,7 @@ export class Parser {
 
         if (["if", "fn", "struct", "impl", "while"].includes(token.value)) return this.CompoundStatement(token);
 
-        if (["let", "return"].includes(token.value)) {
+        if (["let", "return", "break"].includes(token.value)) {
             let stmt = this.SimpleStatement(token)
             this.expectSymbol(null, ";")
             return stmt
@@ -297,6 +298,7 @@ export class Parser {
         const token = _token ?? this.tokens.shift()!;
         if (token.value == "let") return this.VariableDeclaration(token)
         else if (token.value == "return") return this.ReturnStatement(token);
+        else if (token.value == "break") return this.BreakStatement(token);
 
         throw this.parseError(`Unexpected Token ${token.value}`, token.start, token.end);
     }
@@ -336,6 +338,17 @@ export class Parser {
                 start: returnKeyword.start,
                 end: value.end
             }
+        }
+    }
+
+    private BreakStatement = (_token: LexerToken | null): BreakStatement => {
+        const returnKeyword = _token ?? this.tokens.shift()!;
+
+        return {
+            type: "BreakExpression",
+            value: null,
+            start: returnKeyword.start,
+            end: returnKeyword.end
         }
     }
 
