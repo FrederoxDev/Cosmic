@@ -105,6 +105,10 @@ export class Interpreter {
             var [result, ctx] = await this.findTraverseFunc(node.consequent, ctx);
             return [result, ctx];
         }
+        else if (node.elseConsequent != null) {
+            var [result, ctx] = await this.findTraverseFunc(node.elseConsequent, ctx);
+            return [result, ctx];
+        }
 
         return [null, ctx];
     }

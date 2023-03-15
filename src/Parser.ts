@@ -8,7 +8,7 @@ type LexerToken = { type: string; value: string; start: number; end: number; };
 /* Parser return types */
 export type StatementCommon = { type: string, start: number, end: number };
 export type BlockStatement = { body: StatementCommon[] } & StatementCommon;
-export type IfStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
+export type IfStatement = { test: StatementCommon, consequent: BlockStatement, elseConsequent: BlockStatement | null } & StatementCommon;
 export type WhileStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
 export type FunctionDefStatement = { id: string, parameters: FunctionParameter[], body: BlockStatement } & StatementCommon;
 export type FunctionParameter = { id: string, paramType: string } & StatementCommon;
@@ -148,13 +148,20 @@ export class Parser {
         this.expectSymbol(null, ")")
 
         const consequent = this.BlockStatement()
+        var elseConsequent: BlockStatement | null = null;
+
+        if (this.tokens[0].value == "else") {
+            this.tokens.shift();
+            elseConsequent = this.BlockStatement()
+        }
 
         return {
             type: "IfStatement",
             test,
             consequent: consequent,
+            elseConsequent: elseConsequent,
             start: ifKeyword.start,
-            end: consequent.end
+            end: elseConsequent?.end ?? consequent.end
         }
     }
 
