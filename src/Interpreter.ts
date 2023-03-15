@@ -87,7 +87,6 @@ export class Interpreter {
             if (result?.type == "BreakExpression") {
                 return [result, ctx];
             }
-            ctx.stack = []
         }
 
         return [null, ctx];
