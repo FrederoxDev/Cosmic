@@ -6,6 +6,7 @@ import { Context } from "./src/Context";
 import { StructType } from "./src/Struct/StructType";
 import { NativeFunction } from "./src/Struct/NativeFunction";
 import { StructInstance } from "./src/Struct/StructInstance";
+import { NativeEnum } from "./src/Struct/NativeEnum";
 // import { Interpreter } from "./src/Interpreter/Interpreter";
 // import { Context } from "./src/Interpreter/Context";
 // import { NumberStruct } from "./src/Interpreter/Structs/NumberStruct";
@@ -54,9 +55,12 @@ const Vec3 = new StructType("Vec3", [
     })
 ]);
 
+const Status = new NativeEnum("Status", ["Ok", "Err"])
+
 /* Interpreting */
 const globals = new Context()
 globals.setSymbol("Vec3", Vec3)
+globals.setSymbol("Status", Status)
 
 globals.setSymbol("log", new NativeFunction("log", async (interpreter, ctx, start, end, args) => {
     var args = args.map((arg: any) => {

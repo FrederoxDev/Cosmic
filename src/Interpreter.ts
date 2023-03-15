@@ -3,6 +3,7 @@ import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpres
 import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
 import { String } from "./Primitives/String";
+import { NativeEnum } from "./Struct/NativeEnum";
 import { NativeFunction } from "./Struct/NativeFunction";
 import { StructInstance } from "./Struct/StructInstance";
 import { StructType } from "./Struct/StructType";
@@ -119,7 +120,7 @@ export class Interpreter {
             )
             const value = getBooleanLiteral(test);
             if (!value) break;
-            
+
             var [result, ctx] = await this.findTraverseFunc(node.consequent, ctx);
             if (result?.type == "BreakExpression") break;
         }
@@ -268,13 +269,30 @@ export class Interpreter {
     }
 
     private memberExpression = async (node: MemberExpression, ctx: Context): Promise<[any, Context]> => {
-        var [object, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.object, ctx);
-        const value = object.selfCtx.getSymbol(node.property.value);
-        if (value == null)
-            throw this.runtimeErrorCode(`'${node.property.value}' does not exist on struct '${object.structType.id}'`, node.start, node.end);
+        var [object, ctx] = await this.findTraverseFunc(node.object, ctx);
 
-        ctx.stack.push({ node: object, value: node.property.value });
-        return [value, ctx];
+        if (object instanceof StructInstance) {
+            const value = object.selfCtx.getSymbol(node.property.value);
+            if (value == null)
+                throw this.runtimeErrorCode(`'${node.property.value}' does not exist on struct '${object.structType.id}'`, node.start, node.end);
+
+            ctx.stack.push({ node: object, value: node.property.value });
+            return [value, ctx];
+        }
+
+        else if (object instanceof NativeEnum) {
+            const index = object.values.findIndex(i => i == node.property.value);
+            if (index === -1) {
+                throw this.runtimeErrorCode(
+                    `Value '${node.property.value}' does not exist on Enum '${object.id}'`,
+                    node.start,
+                    node.end
+                )
+            }
+            return this.number({ value: index }, ctx);
+        }
+
+        throw Interpreter.internalError(`Member expression logic does not exist for ${object.constructor.name}`)
     }
 
     private memberAssign = async (node: MemberAssign, ctx: Context): Promise<[any, Context]> => {
