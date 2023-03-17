@@ -32,10 +32,16 @@ export type Assign = { left: Identifier, value: LexerToken } & StatementCommon
 export class Parser {
     tokens: LexerToken[];
     code: string;
+    errStart: number;
+    errEnd: number;
+    errMessage: string;
 
     constructor(tokens: LexerToken[], code: string) {
         this.tokens = tokens;
         this.code = code;
+        this.errStart = 0;
+        this.errEnd = 0;
+        this.errMessage = "";
     }
 
     /** 
@@ -63,8 +69,9 @@ export class Parser {
         err.stack = ""
         err.name = "Parser"
 
-        console.log(line);
-        console.log(`${" ".repeat(startIdx - lineStart)}${"^".repeat(endIdx - startIdx)}`);
+        this.errStart = startIdx;
+        this.errEnd = endIdx;
+        this.errMessage = message;
         return err;
     }
 

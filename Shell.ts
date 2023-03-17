@@ -17,17 +17,33 @@ import { NativeEnum } from "./src/Struct/NativeEnum";
 // import { Struct } from "./src/Interpreter/Primitives/Struct";
 // import { ArrayStruct } from "./src/Interpreter/Structs/ArrayStruct";
 
+const logError = (code: string, message: string, startIdx: number, endIdx: number) => {
+    const lineStart = code.lastIndexOf("\n", startIdx) + 1;
+    const line = code.substring(lineStart, endIdx);
+    const lineNum = code.substring(0, startIdx).split("\n").length;
+    const colNum = startIdx - lineStart + 1;
+
+    console.warn(`${lineNum} | ` + line);
+    console.warn(`${" ".repeat(lineNum.toString().length + 3)}` + `${" ".repeat(startIdx - lineStart)}${"^".repeat(endIdx - startIdx)}`);
+    console.warn(message)
+}
+
 if (!existsSync("./err")) mkdirSync("./err");
 const input = readFileSync("./input.cos", { encoding: 'utf-8' });
 
 /* Lexing */
 const tokens = Tokenize(input);
 writeFileSync('./err/tokens.json', JSON.stringify(tokens, null, 2), { flag: "w" });
+if (!Array.isArray(tokens)) {
+    logError(input, `${tokens.type}: ${tokens.message}`, tokens.start, tokens.end);
+    process.exit(1)
+}
 
 // /* AST Parsing */
-const [ast, parseError]: any = new Parser(tokens, input).parse();
+const parser = new Parser(tokens, input);
+const [ast, parseError]: any = parser.parse();
 if (parseError) {
-    console.error(parseError);
+    logError(input, parser.errMessage, parser.errStart, parser.errEnd);
     process.exit(1);
 }
 writeFileSync('./err/ast.json', JSON.stringify(ast, null, 2), { flag: "w" });
@@ -73,5 +89,10 @@ globals.setSymbol("log", new NativeFunction("log", async (interpreter, ctx, star
     return [null, ctx];
 }))
 
-
-new Interpreter(input).findTraverseFunc(ast, globals)
+const interpreter = new Interpreter(input);
+try {
+    interpreter.findTraverseFunc(ast, globals)
+}
+catch (e) {
+    logError(input, interpreter.errMessage, interpreter.errStart, interpreter.errEnd)
+}

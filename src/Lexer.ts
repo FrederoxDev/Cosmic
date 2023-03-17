@@ -23,8 +23,9 @@ const tokenTypes = [
 ];
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
+type IllegalCharacterError = { type: "IllegalCharacterError", char: string, message: string, start: number, end: number }
 
-export const Tokenize = (input: string) => {
+export const Tokenize = (input: string): LexerToken[] | IllegalCharacterError => {
   const tokens: LexerToken[] = [];
   let position = 0;
 
@@ -60,7 +61,13 @@ export const Tokenize = (input: string) => {
     }
 
     if (match === null) {
-      throw new Error(`Invalid input: ${input.slice(position)}`);
+      return {
+        type: "IllegalCharacterError",
+        char: `${input.slice(position)}`,
+        message: `'${input[position]}' is not a valid character`,
+        start: position,
+        end: position + 1
+      }
     }
   }
 

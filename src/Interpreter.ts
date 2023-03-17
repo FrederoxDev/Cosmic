@@ -10,9 +10,15 @@ import { StructType } from "./Struct/StructType";
 
 export class Interpreter {
     private code: string;
+    errStart: number;
+    errEnd: number;
+    errMessage: string;
 
     constructor(code: string) {
         this.code = code
+        this.errStart = 0;
+        this.errEnd = 0;
+        this.errMessage = "";
     }
 
     //#region Error Reporting
@@ -30,9 +36,10 @@ export class Interpreter {
         err.stack = ""
         err.name = "Runtime"
 
-        console.warn(line);
-        console.warn(`${" ".repeat(startIdx - lineStart)}${"^".repeat(endIdx - startIdx)}`);
-        console.warn(message)
+        this.errStart = startIdx
+        this.errEnd = endIdx
+        this.errMessage = message
+
         return err;
     }
 
