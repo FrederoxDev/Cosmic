@@ -149,6 +149,7 @@ export class Interpreter {
             { operator: "+", handler: "Add" },
             { operator: "-", handler: "Minus" },
             { operator: "*", handler: "Mul" },
+            { operator: "%", handler: "Mod" },
             { operator: "**", handler: "Pow" },
             { operator: "/", handler: "Div" },
 
