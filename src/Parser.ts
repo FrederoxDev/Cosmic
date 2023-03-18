@@ -85,7 +85,6 @@ export class Parser {
             return [this.BlockStatement(true), null]
         }
         catch (e) {
-            console.log("Caught err in parse")
             return [null, e]
         }
     }
@@ -547,8 +546,6 @@ export class Parser {
                     }
                 } catch (e) {
                     if (!this.isVscode) throw e;
-
-                    console.log("Caught err in incomplete member")
                     return {
                         type: "IncompleteMemberExpression",
                         object: left,
