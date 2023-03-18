@@ -85,6 +85,7 @@ export class Parser {
             return [this.BlockStatement(true), null]
         }
         catch (e) {
+            console.log("Caught err in parse")
             return [null, e]
         }
     }
@@ -101,7 +102,10 @@ export class Parser {
             while (!["}", "endOfFile"].includes(this.tokens[0].value)) {
                 var token = this.tokens.shift()!;
                 end = token.end
-                statements.push(this.Statement(token))
+                const statement = this.Statement(token);
+                statements.push(statement)
+
+                if (statement.type.startsWith("Incomplete")) break;
             }
 
             if (!topLevelFlag) end = this.expectSymbol(null, "}").end;
@@ -156,6 +160,7 @@ export class Parser {
         const ifKeyword = _token ?? this.tokens.shift()!;
         this.expectSymbol(null, "(")
         const test = this.Expression(null)
+        if (test.type.startsWith("Incomplete")) return test;
         this.expectSymbol(null, ")")
 
         const consequent = this.BlockStatement()
@@ -180,6 +185,7 @@ export class Parser {
         const whileKeyword = _token ?? this.tokens.shift()!;
         this.expectSymbol(null, "(")
         const test = this.Expression(null)
+        if (test.type.startsWith("Incomplete")) return test;
         this.expectSymbol(null, ")")
 
         const consequent = this.BlockStatement()
@@ -242,11 +248,15 @@ export class Parser {
 
         // No params passed
         if (this.tokens[0].value == closingValue) return []
-        parameters.push(this.Expression(null))
+        const expr = this.Expression(null)
+        if (expr.type.startsWith("Incomplete")) return expr;
+        parameters.push(expr)
 
         while (this.tokens[0].value == ",") {
             this.tokens.shift()
-            parameters.push(this.Expression(null))
+            const expr = this.Expression(null)
+            if (expr.type.startsWith("Incomplete")) return expr;
+            parameters.push(expr)
         }
 
         return parameters
@@ -446,6 +456,8 @@ export class Parser {
         while (["*", "/", "%"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()
             let right = this.Term(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return right;
+
             left = {
                 type: "BinaryExpression",
                 left,
@@ -463,6 +475,8 @@ export class Parser {
 
         if (["-", "!"].includes(token.value)) {
             let factor = this.Factor(null);
+            if (factor.type.startsWith("Incomplete")) return factor;
+
             return {
                 type: "UnaryExpression",
                 argument: factor,
@@ -498,12 +512,15 @@ export class Parser {
 
     private Primary = (_token: LexerToken | null): any => {
         let left = this.Atom(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         if (["="].includes(this.tokens[0]?.value)) {
             let op = this.tokens.shift()!;
 
             if (op.value == "=") {
                 var right = this.Expression(null);
+                if (right.type.startsWith("Incomplete")) return right;
+
                 left = {
                     type: "Assign",
                     left: left,
@@ -531,6 +548,7 @@ export class Parser {
                 } catch (e) {
                     if (!this.isVscode) throw e;
 
+                    console.log("Caught err in incomplete member")
                     return {
                         type: "IncompleteMemberExpression",
                         object: left,
@@ -542,6 +560,8 @@ export class Parser {
 
             else if (op.value == "[") {
                 let index = this.Expression(null)
+                if (index.type.startsWith("Incomplete")) return index;
+
                 let end = this.expectSymbol(null, "]")
                 left = {
                     type: "IndexExpression",
@@ -574,6 +594,7 @@ export class Parser {
                     const name = this.tokens.shift()!;
                     this.expectSymbol(null, ":")
                     const value = this.Expression(null)!;
+                    if (value.type.startsWith("Incomplete")) return value;
                     fields.push([name, value])
 
                     if (this.tokens[0].value == "}") break;
@@ -612,6 +633,8 @@ export class Parser {
 
             if (op.value == "=") {
                 var right = this.Expression(null);
+                if (right.type.startsWith("Incomplete")) return right;
+
                 left = {
                     type: "MemberAssign",
                     object: left,
@@ -648,6 +671,8 @@ export class Parser {
         // Group
         else if (token.value == "(") {
             let expr = this.Expression(null);
+            if (expr.type.startsWith("Incomplete")) return expr;
+
             let next = this.tokens.shift()!;
             if (next.value != ")") throw new Error(`Expected ')' instead got ${next.type}`)
             return expr

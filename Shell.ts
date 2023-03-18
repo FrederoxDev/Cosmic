@@ -40,7 +40,7 @@ if (!Array.isArray(tokens)) {
 }
 
 // /* AST Parsing */
-const parser = new Parser(tokens, input);
+const parser = new Parser(tokens, input, true);
 const [ast, parseError]: any = parser.parse();
 if (parseError) {
     logError(input, parser.errMessage, parser.errStart, parser.errEnd);
