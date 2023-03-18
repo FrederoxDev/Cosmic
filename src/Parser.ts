@@ -12,7 +12,7 @@ export type IfStatement = { test: StatementCommon, consequent: BlockStatement, e
 export type WhileStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
 export type FunctionDefStatement = { id: string, parameters: FunctionParameter[], body: BlockStatement } & StatementCommon;
 export type FunctionParameter = { id: string, paramType: string } & StatementCommon;
-export type CallExpression = {callee: StatementCommon, arguments: StatementCommon[]} & StatementCommon;
+export type CallExpression = { callee: StatementCommon, arguments: StatementCommon[] } & StatementCommon;
 export type Argument = {} & StatementCommon;
 export type StructDefStatement = { id: string, fields: Field[] } & StatementCommon;
 export type StructImplStatement = { structId: string, functions: FunctionDefStatement[] } & StatementCommon;
@@ -81,8 +81,8 @@ export class Parser {
     public parse = () => {
         try {
             return [this.BlockStatement(true), null]
-          }
-          catch (e) {
+        }
+        catch (e) {
             return [null, e]
         }
     }
@@ -260,7 +260,7 @@ export class Parser {
             const name = this.tokens.shift()!
             this.expectSymbol(null, ":")
             const type = this.tokens.shift()!
-            fields.push({name: name.value, type: type.value})
+            fields.push({ name: name.value, type: type.value })
 
             if (this.tokens[0].value == "}") break;
             // Optional comma at last field
@@ -322,7 +322,7 @@ export class Parser {
         const identifier = this.tokens.shift()!.value;
         this.expectSymbol(null, "=")
         const init = this.Expression(null)
-        
+
         return {
             type: "VariableDeclaration",
             id: identifier,
@@ -502,13 +502,23 @@ export class Parser {
             let op = this.tokens.shift()!;
 
             if (op.value == ".") {
-                let right = this.Atom(null)
-                left = {
-                    type: "MemberExpression",
-                    object: left,
-                    property: right,
-                    start: left.start,
-                    end: right.end
+                try {
+                    let right = this.Atom(null)
+                    left = {
+                        type: "MemberExpression",
+                        object: left,
+                        property: right,
+                        start: left.start,
+                        end: right.end
+                    }
+                } catch {
+                    console.log("Incomplete Detected!")
+                    left = {
+                        type: "IncompleteMemberExpression",
+                        object: left,
+                        start: left.start,
+                        end: op.end
+                    }
                 }
             }
 
@@ -605,17 +615,17 @@ export class Parser {
             "StructExpression", "StructMethodAccessor", "Array", "IndexExpression", "MemberAssign", "Assign"
         ].includes(token.type)) return token;
 
-        if (token.type == "numberLiteral") 
+        if (token.type == "numberLiteral")
             return { type: "Number", value: parseFloat(token.value), start: token.start, end: token.end }
-        
-        else if (token.type == "stringLiteral") 
-            return { type: "String", value: token.value.substring(1, token.value.length - 1), start: token.start, end: token.end  }
-        
-        else if (token.type == "BooleanLiteral") 
-            return { type: "Boolean", value: token.value.toLowerCase() == "true", start: token.start, end: token.end  }
-        
-        else if (token.type == "identifier") 
-            return { type: "Identifier", value: token.value, start: token.start, end: token.end  }
+
+        else if (token.type == "stringLiteral")
+            return { type: "String", value: token.value.substring(1, token.value.length - 1), start: token.start, end: token.end }
+
+        else if (token.type == "BooleanLiteral")
+            return { type: "Boolean", value: token.value.toLowerCase() == "true", start: token.start, end: token.end }
+
+        else if (token.type == "identifier")
+            return { type: "Identifier", value: token.value, start: token.start, end: token.end }
 
         // Group
         else if (token.value == "(") {
