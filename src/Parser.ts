@@ -35,13 +35,15 @@ export class Parser {
     errStart: number;
     errEnd: number;
     errMessage: string;
+    isVscode: boolean;
 
-    constructor(tokens: LexerToken[], code: string) {
+    constructor(tokens: LexerToken[], code: string, isVscode: boolean = false) {
         this.tokens = tokens;
         this.code = code;
         this.errStart = 0;
         this.errEnd = 0;
         this.errMessage = "";
+        this.isVscode = isVscode
     }
 
     /** 
@@ -126,11 +128,13 @@ export class Parser {
 
         if (["let", "return", "break"].includes(token.value)) {
             let stmt = this.SimpleStatement(token)
+            if (stmt.type.startsWith("Incomplete")) return stmt;
             this.expectSymbol(null, ";")
             return stmt
         }
 
         const expr = this.Expression(token)
+        if (expr.type.startsWith("Incomplete")) return expr;
         this.expectSymbol(null, ";")
         return expr
     }
@@ -322,6 +326,7 @@ export class Parser {
         const identifier = this.tokens.shift()!.value;
         this.expectSymbol(null, "=")
         const init = this.Expression(null)
+        if (init.type.startsWith("Incomplete")) return init;
 
         return {
             type: "VariableDeclaration",
@@ -345,6 +350,7 @@ export class Parser {
 
         else {
             const value = this.Expression(null);
+            if (value.type.startsWith("Incomplete")) return value;
 
             return {
                 type: "ReturnExpression",
@@ -369,10 +375,13 @@ export class Parser {
     /* Expressions */
     private Expression = (_token: LexerToken | null): any => {
         var left = this.Comparison(_token ?? this.tokens.shift()!)
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["&&", "||"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()!
             let right = this.Comparison(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return left;
+
             left = {
                 type: "LogicalExpression",
                 left,
@@ -388,10 +397,13 @@ export class Parser {
 
     private Comparison = (_token: LexerToken | null): any => {
         var left = this.Sum(_token ?? this.tokens.shift()!)
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["!=", "==", ">", ">=", "<", "<="].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()!
             let right = this.Sum(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return left;
+
             left = {
                 type: "BinaryExpression",
                 left,
@@ -407,10 +419,13 @@ export class Parser {
 
     private Sum = (_token: LexerToken | null): any => {
         let left = this.Term(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["+", "-"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()
             let right = this.Term(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return left;
+
             left = {
                 type: "BinaryExpression",
                 left,
@@ -426,6 +441,7 @@ export class Parser {
 
     private Term = (_token: LexerToken | null): any => {
         let left: any = this.Factor(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["*", "/", "%"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()
@@ -461,6 +477,7 @@ export class Parser {
 
     private Power = (_token: LexerToken | null): any => {
         let left = this.Primary(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         if (this.tokens[0].value == "**") {
             let operator = this.tokens.shift()
@@ -511,9 +528,10 @@ export class Parser {
                         start: left.start,
                         end: right.end
                     }
-                } catch {
-                    console.log("Incomplete Detected!")
-                    left = {
+                } catch (e) {
+                    if (!this.isVscode) throw e;
+
+                    return {
                         type: "IncompleteMemberExpression",
                         object: left,
                         start: left.start,
