@@ -1,10 +1,11 @@
 import { BlockStatement, CallExpression, Identifier, IfStatement, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration, WhileStatement } from "./Parser";
+import { Definition, typeDefinitions } from './Definitions';
 
-export type TypeDefinition = { id: string }
+// export type TypeDefinition = { id: string }
 export type Variable = { id: string, type: string };
-export type MemberProperty = { id: string, type: string };
-export type MemberMethod = { id: string, returns: string };
-export type MemberStaticMethod = { id: string, returns: string };
+// export type MemberProperty = { id: string, type: string };
+// export type MemberMethod = { id: string, returns: string };
+// export type MemberStaticMethod = { id: string, returns: string };
 
 export class Scope {
     start: number
@@ -24,16 +25,12 @@ export class Scope {
  * Analyses code for type's which can be used for intellisense
  */
 export class StaticAnalysis {
-    memberProperties: MemberProperty[];
-    memberMethods: MemberMethod[];
-    memberStaticMethods: MemberStaticMethod[];
+    members: Definition[]
     useMember: boolean;
 
     constructor () {
         this.useMember = false;
-        this.memberProperties = []
-        this.memberMethods = []
-        this.memberStaticMethods = []
+        this.members = []
     }
 
     public getCurrentScope(index: number, scope: Scope) {
@@ -105,24 +102,25 @@ export class StaticAnalysis {
 
         scope.variables.push({
             id: node.id,
-            type: varType.id
+            type: varType
         })
 
         return scope;
     }
 
     private incompleteMemberExpression(node: any, scope: Scope) {
-        const objectType = this.findType(node.object, scope).id;
+        const objectType = this.findType(node.object, scope);
         const defintions = typeDefinitions.find(def => def.id == objectType);
         this.useMember = true;
 
         if (defintions == undefined) return scope;
 
-        if (defintions.properties)
-            this.memberProperties.push(...defintions.properties)
+        if (defintions.type === "Struct") {
+            this.members.push(...defintions.methods ?? []);
+            this.members.push(...defintions.properties ?? [])
+        }
 
-        if (defintions.methods)
-            this.memberMethods.push(...defintions.methods)
+        // TODO: Enums
 
         return scope
     }
@@ -131,18 +129,19 @@ export class StaticAnalysis {
         const structType = this.findType(node.object, scope);
         if (structType === undefined) return scope;
 
-        const defintions = typeDefinitions.find(def => def.id === structType.id);
+        const defintions = typeDefinitions.find(def => def.id === structType);
         this.useMember = true;
         if (defintions === undefined) return scope;
 
-        if (defintions.staticMethods)
-            this.memberStaticMethods.push(...defintions.staticMethods)
+        if (defintions.type === "Struct") {
+            this.members.push(...defintions.staticMethods ?? [])
+        }
 
         return scope
     }
 
     /* TYPE STUFF */
-    private findType(node: StatementCommon, scope: Scope): TypeDefinition {
+    private findType(node: StatementCommon, scope: Scope): string {
         const types: { type: string, func: Function }[] = [
             { type: "CallExpression", func: this.callExpression },
             { type: "StructMethodAccessor", func: this.structMethodAccessor },
@@ -154,117 +153,59 @@ export class StaticAnalysis {
         const type = types.find(type => type.type == node.type);
         if (type == undefined) {
             console.log(`StaticAnalyser does not evaulating type of '${node.type}'`);
-            return { id: "Unknown" }
+            return "Unknown"
         }
 
-        const typeDef = type.func.bind(this)(node, scope);
-        return typeDef;
+        return type.func.bind(this)(node, scope);
     }
 
-    private memberExpression(node: MemberExpression, scope: Scope): TypeDefinition {
-        const objectType = this.findType(node.object, scope).id;
+    private memberExpression(node: MemberExpression, scope: Scope): string {
+        const objectType = this.findType(node.object, scope);
         const typeDef = typeDefinitions.find(type => type.id === objectType);
-        if (typeDef === undefined) return { id: "Unknown" };
+        if (typeDef === undefined) return "Unknown";
 
-        const propertyDef = typeDef.properties?.find(prop => prop.id === node.property.value);
-        const methodDef = typeDef.methods?.find(method => method.id === node.property.value);
+        if (typeDef.type === "Struct") {
+            const propDef = typeDef.properties?.find(p => p.id === node.property.value);
+            const methodDef = typeDef.methods?.find(m => m.id === node.property.value);
 
-        if (propertyDef !== undefined) {
-            return { id: propertyDef.type }
+            if (propDef !== undefined) return propDef.type;
+            if (methodDef !== undefined) return methodDef.returnType;
+            return "Unknown";
         }
 
-        if (methodDef !== undefined) {
-            return { id: methodDef.returns }
-        }
-
-        return { id: "Unknown" }
+        console.log(`memberExpression does not support ${typeDef.type}`)
+        return "Unknown";
     }
 
-    private callExpression(node: CallExpression, scope: Scope): TypeDefinition {
-        const calleeReturnType = this.findType(node.callee, scope).id;
-
-        return { id: calleeReturnType }
+    private callExpression(node: CallExpression, scope: Scope): string {
+        return this.findType(node.callee, scope);
     }
 
-    private structMethodAccessor(node: StructMethodAccessor, scope: Scope): TypeDefinition {
-        const structType = this.findType(node.struct, scope).id;
+    private structMethodAccessor(node: StructMethodAccessor, scope: Scope): string {
+        const structType = this.findType(node.struct, scope);
         const typeDef = typeDefinitions.find(type => type.id === structType);
-        if (typeDef === undefined) return { id: "Unknown" }
+        if (typeDef === undefined) return "Unknown";
 
-        const methodDef = typeDef.staticMethods?.find(method => method.id === node.method.value);
-        if (methodDef === undefined) return { id: "Unknown" }
+        if (typeDef.type === "Struct") {
+            const methodDef = typeDef.staticMethods?.find(m => m.id === node.method.value);
+            if (methodDef !== undefined) return methodDef.returnType;
+            return "Unknown";
+        }
 
-        return { id: methodDef.returns }
+        console.log(`structMethodAccessor does not support ${typeDef.type}`)
+        return "Unknown";
     }
 
-    private identifier(node: Identifier, scope: Scope): TypeDefinition {
+    private identifier(node: Identifier, scope: Scope): string {
         const scopeType = scope.variables.find(variable => variable.id == node.value);
         const defType = typeDefinitions.find(def => def.id === node.value)
 
-        if (scopeType !== undefined) {
-            return { id: scopeType.type };
-        }
-
-        if (defType !== undefined) {
-            return { id: defType.id }
-        }
-
-        return { id: "Unknown" }
+        if (scopeType !== undefined) return scopeType.type;
+        if (defType !== undefined) return defType.id;
+        return "Unknown";
     }
 
-    private number(node: any, scope: Scope): TypeDefinition {
-        return { id: "Number" }
+    private number(node: any, scope: Scope): string {
+        return "Number"
     }
-} 
-
-type Defintion = { id: string, properties?: MemberProperty[], methods?: MemberMethod[], staticMethods?: MemberStaticMethod[] }
-
-const MathDef: Defintion = {
-    id: "Math",
-    staticMethods: [
-        { id: "Sin", returns: "Number" },
-        { id: "Cos", returns: "Number" },
-        { id: "Tan", returns: "Number" },
-        { id: "Floor", returns: "Number" },
-    ]
 }
-
-const ThreadDef: Defintion = {
-    id: "Thread",
-    staticMethods: [
-        { id: "Sleep", returns: "Void" }
-    ]
-}
-
-const PixelBufferDef: Defintion = {
-    id: "PixelBuffer",
-    staticMethods: [
-        { id: "New", returns: "PixelBuffer" }
-    ],
-    methods: [
-        { id: "DrawPixel", returns: "Void" },
-        { id: "DrawLine", returns: "Void" },
-        { id: "DrawCircle", returns: "Void" },
-        { id: "DrawText", returns: "Void" },
-    ]
-}
-
-const DisplayDef: Defintion = {
-    id: "Display",
-    staticMethods: [
-        { id: "Connect", returns: "Display" }
-    ],
-    methods: [
-        { id: "DrawBuffer", returns: "Void" }
-    ]
-}
-
-export const typeDefinitions: Defintion[] = [
-    { id: "Number" },
-    { id: "String" },
-    { id: "Boolean" }, 
-    MathDef, 
-    ThreadDef,
-    PixelBufferDef,
-    DisplayDef
-]
