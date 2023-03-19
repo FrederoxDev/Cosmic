@@ -1,11 +1,14 @@
 import { BlockStatement, CallExpression, Identifier, IfStatement, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration, WhileStatement } from "./Parser";
 import { Definition, typeDefinitions } from './Definitions';
+import { MarkedString, MarkupContent } from 'vscode-languageserver';
 
 // export type TypeDefinition = { id: string }
 export type Variable = { id: string, type: string };
 // export type MemberProperty = { id: string, type: string };
 // export type MemberMethod = { id: string, returns: string };
 // export type MemberStaticMethod = { id: string, returns: string };
+
+export type Hoverable = {start: number, end: number, message: MarkedString}
 
 export class Scope {
     start: number
@@ -27,10 +30,12 @@ export class Scope {
 export class StaticAnalysis {
     members: Definition[]
     useMember: boolean;
+    hoverables: Hoverable[];
 
     constructor () {
         this.useMember = false;
         this.members = []
+        this.hoverables = []
     }
 
     public getCurrentScope(index: number, scope: Scope) {
@@ -52,6 +57,7 @@ export class StaticAnalysis {
             { type: "VariableDeclaration", func: this.variableDeclaration },
             { type: "IncompleteMemberExpression", func: this.incompleteMemberExpression },
             { type: "IncompleteStructMethodAccessor", func: this.incompleteStructMethodAccessor },
+            { type: "Identifier", func: this.identifier }
         ]
 
         const type = types.find(type => type.type == node.type);
@@ -105,6 +111,47 @@ export class StaticAnalysis {
             type: varType
         })
 
+        this.hoverables.push({
+            start: node.start,
+            end: node.end,
+            message: {
+                language: "cosmic",
+                value: `let ${node.id}: ${varType}`
+            }
+        })
+
+        return scope;
+    }
+
+    private identifier(node: Identifier, scope: Scope) {
+        const scopeType = scope.variables.find(variable => variable.id == node.value);
+        const defType = typeDefinitions.find(def => def.id === node.value)
+
+        // It is a variable in the scope
+        if (scopeType !== undefined) {
+            this.hoverables.push({
+                start: node.start,
+                end: node.end,
+                message: {
+                    language: "cosmic",
+                    value: `let ${scopeType.id}: ${scopeType.type}`
+                }
+            })
+        }
+
+        if (defType !== undefined) {
+            if (defType.type === "Struct") this.hoverables.push({
+                start: node.start,
+                end: node.end,
+                message: {
+                    language: "cosmic",
+                    value: `struct ${defType.id}`
+                }
+            })
+
+            // TODO: Enums
+        }
+
         return scope;
     }
 
@@ -143,11 +190,13 @@ export class StaticAnalysis {
     /* TYPE STUFF */
     private findType(node: StatementCommon, scope: Scope): string {
         const types: { type: string, func: Function }[] = [
-            { type: "CallExpression", func: this.callExpression },
-            { type: "StructMethodAccessor", func: this.structMethodAccessor },
-            { type: "Identifier", func: this.identifier },
-            { type: "MemberExpression", func: this.memberExpression },
-            { type: "Number", func: this.number }
+            { type: "CallExpression", func: this.callExpressionType },
+            { type: "StructMethodAccessor", func: this.structMethodAccessorType },
+            { type: "Identifier", func: this.identifierType },
+            { type: "MemberExpression", func: this.memberExpressionType },
+            { type: "Number", func: this.numberType },
+            { type: "String", func: this.stringType },
+            { type: "Boolean", func: this.booleanType },
         ]
 
         const type = types.find(type => type.type == node.type);
@@ -159,7 +208,7 @@ export class StaticAnalysis {
         return type.func.bind(this)(node, scope);
     }
 
-    private memberExpression(node: MemberExpression, scope: Scope): string {
+    private memberExpressionType(node: MemberExpression, scope: Scope): string {
         const objectType = this.findType(node.object, scope);
         const typeDef = typeDefinitions.find(type => type.id === objectType);
         if (typeDef === undefined) return "Unknown";
@@ -177,11 +226,11 @@ export class StaticAnalysis {
         return "Unknown";
     }
 
-    private callExpression(node: CallExpression, scope: Scope): string {
+    private callExpressionType(node: CallExpression, scope: Scope): string {
         return this.findType(node.callee, scope);
     }
 
-    private structMethodAccessor(node: StructMethodAccessor, scope: Scope): string {
+    private structMethodAccessorType(node: StructMethodAccessor, scope: Scope): string {
         const structType = this.findType(node.struct, scope);
         const typeDef = typeDefinitions.find(type => type.id === structType);
         if (typeDef === undefined) return "Unknown";
@@ -196,7 +245,7 @@ export class StaticAnalysis {
         return "Unknown";
     }
 
-    private identifier(node: Identifier, scope: Scope): string {
+    private identifierType(node: Identifier, scope: Scope): string {
         const scopeType = scope.variables.find(variable => variable.id == node.value);
         const defType = typeDefinitions.find(def => def.id === node.value)
 
@@ -205,7 +254,15 @@ export class StaticAnalysis {
         return "Unknown";
     }
 
-    private number(node: any, scope: Scope): string {
+    private numberType(node: any, scope: Scope): string {
         return "Number"
+    }
+
+    private stringType(node: any, scope: Scope): string {
+        return "String"
+    }
+
+    private booleanType(node: any, scope: Scope): string {
+        return "Boolean"
     }
 }
