@@ -614,13 +614,23 @@ export class Parser {
             }
 
             else if (op.value == "::") {
-                let right = this.Atom(null)
-                left = {
-                    type: "StructMethodAccessor",
-                    struct: left,
-                    method: right,
-                    start: left.start,
-                    end: right.end
+                try {
+                    let right = this.Atom(null)
+                    left = {
+                        type: "StructMethodAccessor",
+                        struct: left,
+                        method: right,
+                        start: left.start,
+                        end: right.end
+                    }
+                } catch (e) {
+                    if (!this.isVscode) throw e;
+                    return {
+                        type: "IncompleteStructMethodAccessor",
+                        object: left,
+                        start: left.start,
+                        end: op.end
+                    }
                 }
             }
         }
