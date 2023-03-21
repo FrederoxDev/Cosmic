@@ -1,8 +1,10 @@
+import { FunctionDeclaration } from "typescript";
 import { Context } from "./Context";
-import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, Identifier, IfStatement, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
+import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
 import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
 import { String } from "./Primitives/String";
+import { CosmicFunction } from "./Struct/CosmicFunction";
 import { NativeEnum } from "./Struct/NativeEnum";
 import { NativeFunction } from "./Struct/NativeFunction";
 import { StructInstance } from "./Struct/StructInstance";
@@ -74,7 +76,8 @@ export class Interpreter {
             { type: "IfStatement", func: this.ifStatement },
             { type: "WhileStatement", func: this.whileStatement },
             { type: "Assign", func: this.assign },
-            { type: "BreakExpression", func: this.breakExpression }
+            { type: "BreakExpression", func: this.breakExpression },
+            { type: "FunctionDeclaration", func: this.functionDeclaration }
         ];
         const type = types.find(type => type.type == node.type);
         if (type == undefined) throw Interpreter.internalError(`Traverse function does not exist for type '${node.type}'`);
@@ -221,9 +224,15 @@ export class Interpreter {
     }
 
     private identifier = async (node: Identifier, ctx: Context): Promise<[any, Context]> => {
-        const value = ctx.getSymbol<any>(node.value);
-        if (value == undefined) throw this.runtimeErrorCode(`${node.value} does not exist in this current context`, node.start, node.end)
-        return [value, ctx];
+        const symbolTableValue = ctx.getSymbol<any>(node.value);
+        const structsValue = ctx.getStructType(node.value);
+        const methodsValue = ctx.getMethod(node.value);
+
+        if (symbolTableValue !== undefined) return [symbolTableValue, ctx];
+        if (structsValue !== undefined) return [structsValue, ctx];
+        if (methodsValue !== undefined) return [methodsValue, ctx];
+
+        throw this.runtimeErrorCode(`${node.value} does not exist in this current context`, node.start, node.end)
     }
 
     private assign = async (node: Assign, ctx: Context): Promise<[any, Context]> => {
@@ -248,6 +257,11 @@ export class Interpreter {
     //#endregion
 
     //#region Functions
+    private functionDeclaration = async (node: FunctionDefStatement, ctx: Context): Promise<[any, Context]> => {
+        ctx.setSymbol(node.id, new CosmicFunction(node.id, node.parameters, node.body));
+        return [null, ctx];
+    }
+
     private callExpression = async (node: CallExpression, ctx: Context): Promise<[any, Context]> => {
         var [callee, ctx] = await this.findTraverseFunc(node.callee, ctx);
         var args: any[] = []
@@ -262,6 +276,32 @@ export class Interpreter {
         if (callee instanceof NativeFunction) {
             var [value, ctx] = await callee.onCall(this, ctx, node.start, node.end, args);
             return [value, ctx];
+        }
+
+        if (callee instanceof CosmicFunction) {
+            if (node.arguments.length != callee.parameters.length) throw this.runtimeErrorCode(
+                `fn '${callee.id}' expected ${callee.parameters.length} argument(s), recieved ${node.arguments.length}`,
+                node.start,
+                node.end
+            )
+            
+            var functionCtx = new Context(ctx);
+
+            for (var i = 0; i < callee.parameters.length; i++) {
+                const param = callee.parameters[i];
+                var [arg, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.arguments[i], ctx);
+                if (arg.structType.id !== param.paramType) throw this.runtimeErrorCode(
+                    `Fn '${callee.id}' expected argument ${i} to be of type '${param.paramType}', recieved '${arg.structType.id}'`,
+                    node.start,
+                    node.end
+                )
+
+                functionCtx.setSymbol(param.id, arg)
+            }
+
+            var [value, functionCtx] = await this.findTraverseFunc(callee.functionBody, functionCtx);
+
+            return [value, ctx]
         }
 
         throw Interpreter.internalError("Calling functions not yet implemented!");

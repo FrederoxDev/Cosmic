@@ -54,6 +54,7 @@ const Vec3 = new StructType("Vec3", [
         instance.selfCtx.setSymbol("x", args[0]);
         instance.selfCtx.setSymbol("y", args[1]);
         instance.selfCtx.setSymbol("z", args[2]);
+
         return [instance, context];
     }),
 
@@ -75,10 +76,10 @@ const Status = new NativeEnum("Status", ["Ok", "Err"])
 
 /* Interpreting */
 const globals = new Context()
-globals.setSymbol("Vec3", Vec3)
-globals.setSymbol("Status", Status)
+globals.setStructType("Vec3", Vec3);
+// globals.setSymbol("Status", Status)
 
-globals.setSymbol("log", new NativeFunction("log", async (interpreter, ctx, start, end, args) => {
+globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx, start, end, args) => {
     var args = args.map((arg: any) => {
         if (arg instanceof StructInstance) {
             return arg.selfCtx.getProtected("value")
