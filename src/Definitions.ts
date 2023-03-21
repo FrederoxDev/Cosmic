@@ -1,4 +1,5 @@
 import { DisplayDef } from './Definitions/Display';
+import { log } from './Definitions/Global';
 import { MathDef } from './Definitions/Math';
 import { PixelBufferDef } from './Definitions/PixelBuffer';
 import { ThreadDef } from './Definitions/Thread';
@@ -49,5 +50,6 @@ export const typeDefinitions: Definition[] = [
 	PixelBufferDef,
     DisplayDef,
     MathDef,
-    ThreadDef
+    ThreadDef,
+    log
 ]

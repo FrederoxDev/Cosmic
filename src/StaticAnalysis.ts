@@ -1,14 +1,12 @@
-import { BlockStatement, CallExpression, Identifier, IfStatement, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration, WhileStatement } from "./Parser";
+import { Assign, BlockStatement, CallExpression, Identifier, IfStatement, MemberExpression, StatementCommon, StructMethodAccessor, VariableDeclaration, WhileStatement } from "./Parser";
 import { Definition, typeDefinitions } from './Definitions';
-import { MarkedString, MarkupContent } from 'vscode-languageserver';
+import { DiagnosticSeverity, MarkedString, MarkupContent } from 'vscode-languageserver';
 
-// export type TypeDefinition = { id: string }
-export type Variable = { id: string, type: string };
-// export type MemberProperty = { id: string, type: string };
-// export type MemberMethod = { id: string, returns: string };
-// export type MemberStaticMethod = { id: string, returns: string };
+export type Variable = { id: string, types: VariableType[] };
+export type VariableType = { id: string, startIdx: number }
 
 export type Hoverable = {start: number, end: number, message: MarkedString}
+export type AnalyserError = {start: number, end: number, message: string, severity: DiagnosticSeverity}
 
 export class Scope {
     start: number
@@ -24,6 +22,12 @@ export class Scope {
     }
 }
 
+const getVariableTypeAtPosition = (position: number, variable: Variable): VariableType => {
+    const validTypes = variable.types.filter((type) => type.startIdx <= position);
+    validTypes.sort((a, b) => b.startIdx - a.startIdx);
+    return validTypes.find((type) => type.startIdx <= position)!;
+}
+
 /**
  * Analyses code for type's which can be used for intellisense
  */
@@ -31,11 +35,13 @@ export class StaticAnalysis {
     members: Definition[]
     useMember: boolean;
     hoverables: Hoverable[];
+    errors: AnalyserError[];
 
     constructor () {
         this.useMember = false;
         this.members = []
         this.hoverables = []
+        this.errors = []
     }
 
     public getCurrentScope(index: number, scope: Scope) {
@@ -57,7 +63,9 @@ export class StaticAnalysis {
             { type: "VariableDeclaration", func: this.variableDeclaration },
             { type: "IncompleteMemberExpression", func: this.incompleteMemberExpression },
             { type: "IncompleteStructMethodAccessor", func: this.incompleteStructMethodAccessor },
-            { type: "Identifier", func: this.identifier }
+            { type: "Identifier", func: this.identifier },
+            { type: "Assign", func: this.assign },
+            { type: "CallExpression", func: this.callExpression }
         ]
 
         const type = types.find(type => type.type == node.type);
@@ -108,7 +116,12 @@ export class StaticAnalysis {
 
         scope.variables.push({
             id: node.id,
-            type: varType
+            types: [
+                {
+                    id: varType,
+                    startIdx: node.start
+                }
+            ] 
         })
 
         this.hoverables.push({
@@ -116,7 +129,40 @@ export class StaticAnalysis {
             end: node.end,
             message: {
                 language: "cosmic",
-                value: `let ${node.id}: ${varType}`
+                value: `${node.id}: ${varType}`
+            }
+        })
+
+        return scope;
+    }
+
+    private assign(node: Assign, scope: Scope) {
+        if (node.left.type !== "Identifier") return scope;
+
+        const index = scope.variables.findIndex(v => v.id === node.left.value)
+        if (index === -1) {
+            this.errors.push({
+                start: node.start,
+                end: node.end,
+                message: `${node.left.value} does not exist in this scope`,
+                severity: DiagnosticSeverity.Error
+            })
+            return scope;
+        }
+
+        const varType = this.findType(node.value, scope);
+
+        scope.variables[index].types.push({
+            id: varType,
+            startIdx: node.start
+        })
+
+        this.hoverables.push({
+            start: node.start,
+            end: node.end,
+            message: {
+                language: "cosmic",
+                value: `${node.left.value}: ${varType}`
             }
         })
 
@@ -129,12 +175,14 @@ export class StaticAnalysis {
 
         // It is a variable in the scope
         if (scopeType !== undefined) {
+            const type = getVariableTypeAtPosition(node.end, scopeType).id
+            
             this.hoverables.push({
                 start: node.start,
                 end: node.end,
                 message: {
                     language: "cosmic",
-                    value: `let ${scopeType.id}: ${scopeType.type}`
+                    value: `${scopeType.id}: ${type}`
                 }
             })
         }
@@ -151,6 +199,21 @@ export class StaticAnalysis {
 
             // TODO: Enums
         }
+
+        return scope;
+    }
+
+    private callExpression(node: CallExpression, scope: Scope) {
+        const returnType = this.findType(node, scope);
+        
+        this.hoverables.push({
+            start: node.start,
+            end: node.end,
+            message: {
+                language: "cosmic",
+                value: `(method): ${returnType}`
+            }
+        })
 
         return scope;
     }
@@ -201,7 +264,7 @@ export class StaticAnalysis {
 
         const type = types.find(type => type.type == node.type);
         if (type == undefined) {
-            console.log(`StaticAnalyser does not evaulating type of '${node.type}'`);
+            console.log(`Type Analysis does not support '${node.type}'`);
             return "Unknown"
         }
 
@@ -249,9 +312,14 @@ export class StaticAnalysis {
         const scopeType = scope.variables.find(variable => variable.id == node.value);
         const defType = typeDefinitions.find(def => def.id === node.value)
 
-        if (scopeType !== undefined) return scopeType.type;
-        if (defType !== undefined) return defType.id;
-        return "Unknown";
+        if (scopeType !== undefined) return getVariableTypeAtPosition(node.start, scopeType).id;
+        if (defType === undefined) return "Unknown";
+        
+        if (defType.type === "Method") {
+            return defType.returnType
+        }
+
+        return "Unknown"
     }
 
     private numberType(node: any, scope: Scope): string {
