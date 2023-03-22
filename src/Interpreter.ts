@@ -1,6 +1,6 @@
 import { FunctionDeclaration } from "typescript";
 import { Context } from "./Context";
-import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
+import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, LoopStatement, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
 import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
 import { String } from "./Primitives/String";
@@ -74,7 +74,7 @@ export class Interpreter {
             { type: "LogicalExpression", func: this.binaryExpression },
             { type: "UnaryExpression", func: this.unaryExpression },
             { type: "IfStatement", func: this.ifStatement },
-            { type: "WhileStatement", func: this.whileStatement },
+            { type: "LoopStatement", func: this.loopStatement },
             { type: "Assign", func: this.assign },
             { type: "BreakExpression", func: this.breakExpression },
             { type: "FunctionDeclaration", func: this.functionDeclaration }
@@ -123,22 +123,13 @@ export class Interpreter {
         return [null, ctx];
     }
 
-    private whileStatement = async (node: WhileStatement, ctx: Context): Promise<[any, Context]> => {
+    private loopStatement = async (node: LoopStatement, ctx: Context): Promise<[any, Context]> => {
         while (true) {
-            var [test, ctx]: [StructInstance, Context] = await this.findTraverseFunc(node.test, ctx);
-            if (test.structType.id != "Boolean") throw this.runtimeErrorCode(
-                `If Test Statement must resolve to type of Boolean, instead got ${test.structType.id}`,
-                node.test.start,
-                node.test.end
-            )
-            const value = getBooleanLiteral(test);
-            if (!value) break;
-
-            var [result, ctx] = await this.findTraverseFunc(node.consequent, ctx);
-            if (result?.type == "BreakExpression") break;
+            var [result, ctx] = await this.findTraverseFunc(node.body, ctx);
+            if (result?.type === "BreakExpression") break;
         }
 
-        return [null, ctx];
+        return [null, ctx]
     }
     //#endregion
 

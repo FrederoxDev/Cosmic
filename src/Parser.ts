@@ -8,6 +8,7 @@ type LexerToken = { type: string; value: string; start: number; end: number; };
 /* Parser return types */
 export type StatementCommon = { type: string, start: number, end: number };
 export type BlockStatement = { body: StatementCommon[] } & StatementCommon;
+export type LoopStatement = { body: StatementCommon } & StatementCommon;
 export type IfStatement = { test: StatementCommon, consequent: BlockStatement, elseConsequent: BlockStatement | null } & StatementCommon;
 export type WhileStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
 export type FunctionDefStatement = { id: string, parameters: FunctionParameter[], body: BlockStatement } & StatementCommon;
@@ -127,7 +128,7 @@ export class Parser {
     private Statement = (_token: LexerToken | null): StatementCommon => {
         const token = _token ?? this.tokens.shift()!;
 
-        if (["if", "fn", "struct", "impl", "while"].includes(token.value)) return this.CompoundStatement(token);
+        if (["if", "fn", "struct", "impl", "while", "loop"].includes(token.value)) return this.CompoundStatement(token);
 
         if (["let", "return", "break"].includes(token.value)) {
             let stmt = this.SimpleStatement(token)
@@ -151,6 +152,7 @@ export class Parser {
         else if (token.value == "while") return this.WhileStatement(token)
         else if (token.value == "struct") return this.StructDefStatement(token)
         else if (token.value == "impl") return this.StructImplStatement(token)
+        else if (token.value == "loop") return this.LoopStatement(token);
 
         throw this.parseError(`Unexpected Token ${token.value}`, token.start, token.end);
     }
@@ -180,21 +182,60 @@ export class Parser {
         }
     }
 
-    private WhileStatement = (_token: LexerToken | null): WhileStatement => {
+    private LoopStatement = (_token: LexerToken | null): LoopStatement => {
+        const loopKeyword = _token ?? this.tokens.shift()!;
+        const body = this.BlockStatement();
+
+        return {
+            type: "LoopStatement",
+            body,
+            start: loopKeyword.start,
+            end: body.end
+        };
+    }
+
+    private WhileStatement = (_token: LexerToken | null): LoopStatement => {
         const whileKeyword = _token ?? this.tokens.shift()!;
+
         this.expectSymbol(null, "(")
         const test = this.Expression(null)
         if (test.type.startsWith("Incomplete")) return test;
         this.expectSymbol(null, ")")
 
-        const consequent = this.BlockStatement()
+        const body = this.BlockStatement()
+
+        const breakIfTestNotMetStatement = {
+            type: "IfStatement",
+            test: {
+                start: test.start,
+                end: test.end,
+                type: "UnaryExpression",
+                argument: test,
+                operator: "!"
+            },
+            consequent: {
+                start: test.start,
+                end: test.end,
+                type: "BlockStatement",
+                body: [{
+                    type: "BreakExpression",
+                    start: test.start,
+                    end: test.end,
+                    value: null
+                }]
+            },
+            start: test.start,
+            end: test.end,
+            elseConsequent: null
+        }
+        
+        body.body.unshift(breakIfTestNotMetStatement)
 
         return {
-            type: "WhileStatement",
-            test,
-            consequent: consequent,
+            type: "LoopStatement",
+            body,
             start: whileKeyword.start,
-            end: consequent.end
+            end: body.end
         }
     }
 

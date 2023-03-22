@@ -8,6 +8,12 @@ export const getBooleanLiteral = (struct: StructInstance) => {
 }
 
 export const Boolean = new StructType("Boolean", [
+    new NativeFunction("Not", async (interpreter, ctx, start, end, args) => {
+        const helper = new NativeFunctionHelper(interpreter, args, 1, start, end);
+        const self = getBooleanLiteral(helper.expectType(0, "Boolean"))
+        return interpreter.boolean({value: !self}, ctx)
+    }),
+
     new NativeFunction("And", async (interpreter, ctx, start, end, args) => {
         const helper = new NativeFunctionHelper(interpreter, args, 2, start, end);
         const left = getBooleanLiteral(helper.expectType(0, "Boolean"));
