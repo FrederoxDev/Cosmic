@@ -29,10 +29,14 @@ const logError = (code: string, message: string, startIdx: number, endIdx: numbe
 }
 
 if (!existsSync("./err")) mkdirSync("./err");
+console.time("read-file")
 const input = readFileSync("./input.cos", { encoding: 'utf-8' });
+console.timeEnd("read-file")
 
 /* Lexing */
+console.time("tokenize-file")
 const tokens = Tokenize(input);
+console.timeEnd("tokenize-file")
 writeFileSync('./err/tokens.json', JSON.stringify(tokens, null, 2), { flag: "w" });
 if (!Array.isArray(tokens)) {
     logError(input, `${tokens.type}: ${tokens.message}`, tokens.start, tokens.end);
@@ -40,8 +44,10 @@ if (!Array.isArray(tokens)) {
 }
 
 // /* AST Parsing */
+console.time("parse-tokens")
 const parser = new Parser(tokens, input);
 const [ast, parseError]: any = parser.parse();
+console.timeEnd("parse-tokens")
 if (parseError) {
     logError(input, parser.errMessage, parser.errStart, parser.errEnd);
     process.exit(1);
@@ -62,7 +68,7 @@ const Vec3 = new StructType("Vec3", [
         var selfRef = context.stack.pop() as StructInstance;
         if (!(selfRef instanceof StructInstance)) throw Interpreter.internalError("Modify can only be ran on an instance of a Vec3")
 
-        var [val, context] = await interpreter.number({value: 3}, context);
+        var [val, context] = await interpreter.number({ value: 3 }, context);
 
         selfRef.selfCtx.setSymbol("x", val);
         selfRef.selfCtx.setSymbol("y", val);
@@ -91,9 +97,11 @@ globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx, star
 }))
 
 const interpreter = new Interpreter(input);
-try {
-    interpreter.findTraverseFunc(ast, globals)
-}
-catch (e) {
+
+console.time("execute-program")
+interpreter.findTraverseFunc(ast, globals).catch(e => {
+    console.log(e)
     logError(input, interpreter.errMessage, interpreter.errStart, interpreter.errEnd)
-}
+}).finally(() => {
+    console.timeEnd("execute-program")
+})

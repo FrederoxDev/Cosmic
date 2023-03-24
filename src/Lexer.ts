@@ -1,14 +1,16 @@
-const stringLiteralRegex = /"([^"\\]|\\.)*"/;
-const numberLiteralRegex = /-?\d+(\.\d+)?/;
-const BooleanLiteralRegex = /(true|false)/;
-const identifierRegex = /[a-zA-Z_0-9]\w*/;
-const whitespaceRegex = /\s+/;
-const binaryAssignOpRegex = /(\+=|-=|\*=|\/=|%=)/;
-const symbolRegex = /(::|->|#|\[|\]|\(|\)|\{|\}|,|;|=|\.|:|&)/;
-const binaryOpRegex = /(\*\*|\+|\-|\*|\/|%|==|<=|<|>=|>|!=|&&|\|\|)/
-const unaryOpRegex = /(!)/
-const multiLineComment = /\/\*.*\*\//s
-const commentRegex = /\/\/.*/m
+const stringLiteralRegex = /^("([^"\\]|\\.)*")/;
+const numberLiteralRegex = /^(-?\d+(\.\d+)?)/;
+const BooleanLiteralRegex = /^((true|false))/;
+const identifierRegex = /^([a-zA-Z_0-9]\w*)/;
+const whitespaceRegex = /^(\s+)/;
+const binaryAssignOpRegex = /^((\+=|-=|\*=|\/=|%=))/;
+const symbolRegex = /^((::|->|#|\[|\]|\(|\)|\{|\}|,|;|=|\.|:|&))/;
+const binaryOpRegex = /^((\*\*|\+|\-|\*|\/|%|==|<=|<|>=|>|!=|&&|\|\|))/
+const unaryOpRegex = /^((!))/
+const multiLineComment = /^(\/\*.*\*\/)/s
+const commentRegex = /^(\/\/.*)/m
+
+// All regexes surrounded by "^( <regex> )""
 
 const tokenTypes = [
   { type: 'whitespace', regex: whitespaceRegex },
@@ -39,8 +41,7 @@ export const Tokenize = (input: string): LexerToken[] | IllegalCharacterError =>
     let match: RegExpExecArray | null = null;
 
     for (const tokenType of tokenTypes) {
-      const regex = new RegExp(`^(${tokenType.regex.source})`);
-      match = regex.exec(input.slice(position));
+      match = tokenType.regex.exec(input.slice(position));
 
       if (match !== null) {
         const start = position;
