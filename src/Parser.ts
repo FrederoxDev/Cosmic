@@ -1,4 +1,6 @@
+// @ts-ignore
 import { Function } from "./Interpreter/Primitives/Function";
+// @ts-ignore
 import { Field } from "./Interpreter/Primitives/Struct";
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
@@ -6,29 +8,43 @@ type LexerToken = { type: string; value: string; start: number; end: number; };
 /* Parser return types */
 export type StatementCommon = { type: string, start: number, end: number };
 export type BlockStatement = { body: StatementCommon[] } & StatementCommon;
-export type IfStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
+export type LoopStatement = { body: StatementCommon } & StatementCommon;
+export type IfStatement = { test: StatementCommon, consequent: BlockStatement, elseConsequent: BlockStatement | null } & StatementCommon;
 export type WhileStatement = { test: StatementCommon, consequent: BlockStatement } & StatementCommon;
 export type FunctionDefStatement = { id: string, parameters: FunctionParameter[], body: BlockStatement } & StatementCommon;
 export type FunctionParameter = { id: string, paramType: string } & StatementCommon;
-export type CallExpression = {callee: StatementCommon, arguments: StatementCommon[]} & StatementCommon;
+export type CallExpression = { callee: StatementCommon, arguments: StatementCommon[] } & StatementCommon;
 export type Argument = {} & StatementCommon;
 export type StructDefStatement = { id: string, fields: Field[] } & StatementCommon;
 export type StructImplStatement = { structId: string, functions: FunctionDefStatement[] } & StatementCommon;
 export type VariableDeclaration = { id: string, init: StatementCommon } & StatementCommon;
 export type ReturnStatement = { value: StatementCommon | null } & StatementCommon;
+export type BreakStatement = { value: StatementCommon | null } & StatementCommon;
 export type LogicalExpression = { left: StatementCommon, operator: LexerToken, right: StatementCommon } & StatementCommon;
 export type BinaryExpression = { left: StatementCommon, operator: LexerToken, right: StatementCommon } & StatementCommon;
 export type UnaryExpression = { argument: UnaryExpression, operator: string } & StatementCommon;
 export type Atom<T> = { value: T } & StatementCommon
 export type MemberExpression = { object: StatementCommon, property: LexerToken } & StatementCommon
+export type StructMethodAccessor = { struct: StatementCommon, method: Identifier } & StatementCommon
+export type Identifier = { value: string } & StatementCommon
+export type MemberAssign = { object: StatementCommon, value: LexerToken } & StatementCommon
+export type Assign = { left: Identifier, value: LexerToken } & StatementCommon
 
 export class Parser {
     tokens: LexerToken[];
     code: string;
+    errStart: number;
+    errEnd: number;
+    errMessage: string;
+    isVscode: boolean;
 
-    constructor(tokens: LexerToken[], code: string) {
+    constructor(tokens: LexerToken[], code: string, isVscode: boolean = false) {
         this.tokens = tokens;
         this.code = code;
+        this.errStart = 0;
+        this.errEnd = 0;
+        this.errMessage = "";
+        this.isVscode = isVscode
     }
 
     /** 
@@ -56,8 +72,9 @@ export class Parser {
         err.stack = ""
         err.name = "Parser"
 
-        console.log(line);
-        console.log(`${" ".repeat(startIdx - lineStart)}${"^".repeat(endIdx - startIdx)}`);
+        this.errStart = startIdx;
+        this.errEnd = endIdx;
+        this.errMessage = message;
         return err;
     }
 
@@ -67,8 +84,8 @@ export class Parser {
     public parse = () => {
         try {
             return [this.BlockStatement(true), null]
-          }
-          catch (e) {
+        }
+        catch (e) {
             return [null, e]
         }
     }
@@ -85,7 +102,10 @@ export class Parser {
             while (!["}", "endOfFile"].includes(this.tokens[0].value)) {
                 var token = this.tokens.shift()!;
                 end = token.end
-                statements.push(this.Statement(token))
+                const statement = this.Statement(token);
+                statements.push(statement)
+
+                if (statement.type.startsWith("Incomplete")) break;
             }
 
             if (!topLevelFlag) end = this.expectSymbol(null, "}").end;
@@ -108,15 +128,17 @@ export class Parser {
     private Statement = (_token: LexerToken | null): StatementCommon => {
         const token = _token ?? this.tokens.shift()!;
 
-        if (["if", "fn", "struct", "impl", "while"].includes(token.value)) return this.CompoundStatement(token);
+        if (["if", "fn", "struct", "impl", "while", "loop"].includes(token.value)) return this.CompoundStatement(token);
 
-        if (["let", "return"].includes(token.value)) {
+        if (["let", "return", "break"].includes(token.value)) {
             let stmt = this.SimpleStatement(token)
+            if (stmt.type.startsWith("Incomplete")) return stmt;
             this.expectSymbol(null, ";")
             return stmt
         }
 
         const expr = this.Expression(token)
+        if (expr.type.startsWith("Incomplete")) return expr;
         this.expectSymbol(null, ";")
         return expr
     }
@@ -130,6 +152,7 @@ export class Parser {
         else if (token.value == "while") return this.WhileStatement(token)
         else if (token.value == "struct") return this.StructDefStatement(token)
         else if (token.value == "impl") return this.StructImplStatement(token)
+        else if (token.value == "loop") return this.LoopStatement(token);
 
         throw this.parseError(`Unexpected Token ${token.value}`, token.start, token.end);
     }
@@ -138,33 +161,81 @@ export class Parser {
         const ifKeyword = _token ?? this.tokens.shift()!;
         this.expectSymbol(null, "(")
         const test = this.Expression(null)
+        if (test.type.startsWith("Incomplete")) return test;
         this.expectSymbol(null, ")")
 
         const consequent = this.BlockStatement()
+        var elseConsequent: BlockStatement | null = null;
+
+        if (this.tokens[0].value == "else") {
+            this.tokens.shift();
+            elseConsequent = this.BlockStatement()
+        }
 
         return {
             type: "IfStatement",
             test,
             consequent: consequent,
+            elseConsequent: elseConsequent,
             start: ifKeyword.start,
-            end: consequent.end
+            end: elseConsequent?.end ?? consequent.end
         }
     }
 
-    private WhileStatement = (_token: LexerToken | null): WhileStatement => {
-        const whileKeyword = _token ?? this.tokens.shift()!;
-        this.expectSymbol(null, "(")
-        const test = this.Expression(null)
-        this.expectSymbol(null, ")")
-
-        const consequent = this.BlockStatement()
+    private LoopStatement = (_token: LexerToken | null): LoopStatement => {
+        const loopKeyword = _token ?? this.tokens.shift()!;
+        const body = this.BlockStatement();
 
         return {
-            type: "WhileStatement",
-            test,
-            consequent: consequent,
+            type: "LoopStatement",
+            body,
+            start: loopKeyword.start,
+            end: body.end
+        };
+    }
+
+    private WhileStatement = (_token: LexerToken | null): LoopStatement => {
+        const whileKeyword = _token ?? this.tokens.shift()!;
+
+        this.expectSymbol(null, "(")
+        const test = this.Expression(null)
+        if (test.type.startsWith("Incomplete")) return test;
+        this.expectSymbol(null, ")")
+
+        const body = this.BlockStatement()
+
+        const breakIfTestNotMetStatement = {
+            type: "IfStatement",
+            test: {
+                start: test.start,
+                end: test.end,
+                type: "UnaryExpression",
+                argument: test,
+                operator: "!"
+            },
+            consequent: {
+                start: test.start,
+                end: test.end,
+                type: "BlockStatement",
+                body: [{
+                    type: "BreakExpression",
+                    start: test.start,
+                    end: test.end,
+                    value: null
+                }]
+            },
+            start: test.start,
+            end: test.end,
+            elseConsequent: null
+        }
+        
+        body.body.unshift(breakIfTestNotMetStatement)
+
+        return {
+            type: "LoopStatement",
+            body,
             start: whileKeyword.start,
-            end: consequent.end
+            end: body.end
         }
     }
 
@@ -217,11 +288,15 @@ export class Parser {
 
         // No params passed
         if (this.tokens[0].value == closingValue) return []
-        parameters.push(this.Expression(null))
+        const expr = this.Expression(null)
+        if (expr.type.startsWith("Incomplete")) return expr;
+        parameters.push(expr)
 
         while (this.tokens[0].value == ",") {
             this.tokens.shift()
-            parameters.push(this.Expression(null))
+            const expr = this.Expression(null)
+            if (expr.type.startsWith("Incomplete")) return expr;
+            parameters.push(expr)
         }
 
         return parameters
@@ -239,7 +314,7 @@ export class Parser {
             const name = this.tokens.shift()!
             this.expectSymbol(null, ":")
             const type = this.tokens.shift()!
-            fields.push({name: name.value, type: type.value})
+            fields.push({ name: name.value, type: type.value })
 
             if (this.tokens[0].value == "}") break;
             // Optional comma at last field
@@ -291,6 +366,7 @@ export class Parser {
         const token = _token ?? this.tokens.shift()!;
         if (token.value == "let") return this.VariableDeclaration(token)
         else if (token.value == "return") return this.ReturnStatement(token);
+        else if (token.value == "break") return this.BreakStatement(token);
 
         throw this.parseError(`Unexpected Token ${token.value}`, token.start, token.end);
     }
@@ -300,7 +376,8 @@ export class Parser {
         const identifier = this.tokens.shift()!.value;
         this.expectSymbol(null, "=")
         const init = this.Expression(null)
-        
+        if (init.type.startsWith("Incomplete")) return init;
+
         return {
             type: "VariableDeclaration",
             id: identifier,
@@ -323,6 +400,7 @@ export class Parser {
 
         else {
             const value = this.Expression(null);
+            if (value.type.startsWith("Incomplete")) return value;
 
             return {
                 type: "ReturnExpression",
@@ -333,13 +411,27 @@ export class Parser {
         }
     }
 
+    private BreakStatement = (_token: LexerToken | null): BreakStatement => {
+        const returnKeyword = _token ?? this.tokens.shift()!;
+
+        return {
+            type: "BreakExpression",
+            value: null,
+            start: returnKeyword.start,
+            end: returnKeyword.end
+        }
+    }
+
     /* Expressions */
     private Expression = (_token: LexerToken | null): any => {
         var left = this.Comparison(_token ?? this.tokens.shift()!)
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["&&", "||"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()!
             let right = this.Comparison(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return left;
+
             left = {
                 type: "LogicalExpression",
                 left,
@@ -355,10 +447,13 @@ export class Parser {
 
     private Comparison = (_token: LexerToken | null): any => {
         var left = this.Sum(_token ?? this.tokens.shift()!)
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["!=", "==", ">", ">=", "<", "<="].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()!
             let right = this.Sum(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return left;
+
             left = {
                 type: "BinaryExpression",
                 left,
@@ -374,10 +469,13 @@ export class Parser {
 
     private Sum = (_token: LexerToken | null): any => {
         let left = this.Term(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["+", "-"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()
             let right = this.Term(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return left;
+
             left = {
                 type: "BinaryExpression",
                 left,
@@ -393,10 +491,13 @@ export class Parser {
 
     private Term = (_token: LexerToken | null): any => {
         let left: any = this.Factor(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         while (["*", "/", "%"].includes(this.tokens[0]?.value)) {
             let operator = this.tokens.shift()
             let right = this.Term(this.tokens.shift()!)
+            if (right.type.startsWith("Incomplete")) return right;
+
             left = {
                 type: "BinaryExpression",
                 left,
@@ -414,6 +515,8 @@ export class Parser {
 
         if (["-", "!"].includes(token.value)) {
             let factor = this.Factor(null);
+            if (factor.type.startsWith("Incomplete")) return factor;
+
             return {
                 type: "UnaryExpression",
                 argument: factor,
@@ -428,6 +531,7 @@ export class Parser {
 
     private Power = (_token: LexerToken | null): any => {
         let left = this.Primary(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
 
         if (this.tokens[0].value == "**") {
             let operator = this.tokens.shift()
@@ -448,23 +552,54 @@ export class Parser {
 
     private Primary = (_token: LexerToken | null): any => {
         let left = this.Atom(_token ?? this.tokens.shift()!);
+        if (left.type.startsWith("Incomplete")) return left;
+
+        if (["="].includes(this.tokens[0]?.value)) {
+            let op = this.tokens.shift()!;
+
+            if (op.value == "=") {
+                var right = this.Expression(null);
+                if (right.type.startsWith("Incomplete")) return right;
+
+                left = {
+                    type: "Assign",
+                    left: left,
+                    value: right,
+                    start: left.start,
+                    end: right.end
+                }
+                return left;
+            }
+        }
 
         while ([".", "(", "{", "::", "["].includes(this.tokens[0]?.value)) {
             let op = this.tokens.shift()!;
 
             if (op.value == ".") {
-                let right = this.Atom(null)
-                left = {
-                    type: "MemberExpression",
-                    object: left,
-                    property: right,
-                    start: left.start,
-                    end: right.end
+                try {
+                    let right = this.Atom(null)
+                    left = {
+                        type: "MemberExpression",
+                        object: left,
+                        property: right,
+                        start: left.start,
+                        end: right.end
+                    }
+                } catch (e) {
+                    if (!this.isVscode) throw e;
+                    return {
+                        type: "IncompleteMemberExpression",
+                        object: left,
+                        start: left.start,
+                        end: op.end
+                    }
                 }
             }
 
             else if (op.value == "[") {
                 let index = this.Expression(null)
+                if (index.type.startsWith("Incomplete")) return index;
+
                 let end = this.expectSymbol(null, "]")
                 left = {
                     type: "IndexExpression",
@@ -497,6 +632,7 @@ export class Parser {
                     const name = this.tokens.shift()!;
                     this.expectSymbol(null, ":")
                     const value = this.Expression(null)!;
+                    if (value.type.startsWith("Incomplete")) return value;
                     fields.push([name, value])
 
                     if (this.tokens[0].value == "}") break;
@@ -519,11 +655,38 @@ export class Parser {
             }
 
             else if (op.value == "::") {
-                let right = this.Atom(null)
+                try {
+                    let right = this.Atom(null)
+                    left = {
+                        type: "StructMethodAccessor",
+                        struct: left,
+                        method: right,
+                        start: left.start,
+                        end: right.end
+                    }
+                } catch (e) {
+                    if (!this.isVscode) throw e;
+                    return {
+                        type: "IncompleteStructMethodAccessor",
+                        object: left,
+                        start: left.start,
+                        end: op.end
+                    }
+                }
+            }
+        }
+
+        if (["="].includes(this.tokens[0]?.value)) {
+            let op = this.tokens.shift()!;
+
+            if (op.value == "=") {
+                var right = this.Expression(null);
+                if (right.type.startsWith("Incomplete")) return right;
+
                 left = {
-                    type: "StructMethodAccessor",
-                    struct: left,
-                    method: right,
+                    type: "MemberAssign",
+                    object: left,
+                    value: right,
                     start: left.start,
                     end: right.end
                 }
@@ -538,24 +701,26 @@ export class Parser {
 
         // Literally just ignore
         if (["Number", "Identifier", "String", "Boolean", "BinaryExpression", "UnaryExpression", "MemberExpression", "CallExpression",
-            "StructExpression", "StructMethodAccessor", "Array", "IndexExpression"
+            "StructExpression", "StructMethodAccessor", "Array", "IndexExpression", "MemberAssign", "Assign"
         ].includes(token.type)) return token;
 
-        if (token.type == "numberLiteral") 
+        if (token.type == "numberLiteral")
             return { type: "Number", value: parseFloat(token.value), start: token.start, end: token.end }
-        
-        else if (token.type == "stringLiteral") 
-            return { type: "String", value: token.value.substring(1, token.value.length - 1), start: token.start, end: token.end  }
-        
-        else if (token.type == "BooleanLiteral") 
-            return { type: "Boolean", value: token.value.toLowerCase() == "true", start: token.start, end: token.end  }
-        
-        else if (token.type == "identifier") 
-            return { type: "Identifier", value: token.value, start: token.start, end: token.end  }
+
+        else if (token.type == "stringLiteral")
+            return { type: "String", value: token.value.substring(1, token.value.length - 1), start: token.start, end: token.end }
+
+        else if (token.type == "BooleanLiteral")
+            return { type: "Boolean", value: token.value.toLowerCase() == "true", start: token.start, end: token.end }
+
+        else if (token.type == "identifier")
+            return { type: "Identifier", value: token.value, start: token.start, end: token.end }
 
         // Group
         else if (token.value == "(") {
             let expr = this.Expression(null);
+            if (expr.type.startsWith("Incomplete")) return expr;
+
             let next = this.tokens.shift()!;
             if (next.value != ")") throw new Error(`Expected ')' instead got ${next.type}`)
             return expr
