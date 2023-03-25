@@ -5,6 +5,8 @@ import { Field } from "./Interpreter/Primitives/Struct";
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
 
+export type Program = { entryPoint: FunctionDefStatement, functions: FunctionDefStatement[] } & StatementCommon
+
 /* Parser return types */
 export type StatementCommon = { type: string, start: number, end: number };
 export type BlockStatement = { body: StatementCommon[] } & StatementCommon;
@@ -83,10 +85,52 @@ export class Parser {
      */
     public parse = () => {
         try {
-            return [this.BlockStatement(true), null]
+            return [this.Program(null), null]
         }
         catch (e) {
             return [null, e]
+        }
+    }
+
+    private Program = (_token: LexerToken | null): Program => {
+        var start: number = this.tokens[0].start;
+        var entryPoint: FunctionDefStatement | null = null;
+        var functions: FunctionDefStatement[] = [];
+        var structs: StructDefStatement[] = []
+        var end: number = 0;
+
+        while (this.tokens[0].value !== "endOfFile") {
+            const token = _token ?? this.tokens.shift()!;
+            end = token.end;
+
+            if (token.value === "fn") {
+                if (this.tokens[0].value === "Main") {
+                    entryPoint = this.FunctionDefStatement(token);
+                    end = entryPoint.end;
+                }
+                else {
+                    const fn = this.FunctionDefStatement(token);
+                    end = fn.end;
+                    functions.push(fn);
+                }
+            }
+            else if (token.value === "struct") {
+                const struct = this.StructDefStatement(token);
+                structs.push(struct);
+            }
+            else {
+                throw this.parseError(`(${token.type}: ${token.value}) is not supported at the top level`, token.start, token.end)
+            }
+        }
+
+        if (entryPoint === null) throw this.parseError(`Program has no entry point. Expected function with identifier 'Main'`, end, end)
+
+        return {
+            type: "Program",
+            entryPoint,
+            functions,
+            start,
+            end,
         }
     }
 

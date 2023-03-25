@@ -1,6 +1,6 @@
 import { FunctionDeclaration } from "typescript";
 import { Context } from "./Context";
-import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, LoopStatement, MemberAssign, MemberExpression, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
+import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, LoopStatement, MemberAssign, MemberExpression, Program, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
 import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
 import { String } from "./Primitives/String";
@@ -77,7 +77,8 @@ export class Interpreter {
             { type: "LoopStatement", func: this.loopStatement },
             { type: "Assign", func: this.assign },
             { type: "BreakExpression", func: this.breakExpression },
-            { type: "FunctionDeclaration", func: this.functionDeclaration }
+            { type: "FunctionDeclaration", func: this.functionDeclaration },
+            { type: "Program", func: this.program}
         ];
         const type = types.find(type => type.type == node.type);
         if (type == undefined) throw Interpreter.internalError(`Traverse function does not exist for type '${node.type}'`);
@@ -87,6 +88,19 @@ export class Interpreter {
         return result;
     }
     //#endregion
+
+    private program = async (node: Program, ctx: Context): Promise<[any, Context]> => {
+        // ...Add all non main methods into the context;
+        for (var i = 0; i < node.functions.length; i++) {
+            var [_, ctx] = await this.findTraverseFunc(node.functions[i], ctx);
+        }
+
+        // Execute the main function
+        var entryContext = new Context(ctx);
+        var [_, entryContext] = await this.findTraverseFunc(node.entryPoint.body, entryContext);
+
+        return [null, ctx];
+    }
 
     //#region Statements
     private blockStatement = async (node: BlockStatement, ctx: Context): Promise<[any, Context]> => {
@@ -249,7 +263,7 @@ export class Interpreter {
 
     //#region Functions
     private functionDeclaration = async (node: FunctionDefStatement, ctx: Context): Promise<[any, Context]> => {
-        ctx.setSymbol(node.id, new CosmicFunction(node.id, node.parameters, node.body));
+        ctx.setMethod(node.id, new CosmicFunction(node.id, node.parameters, node.body));
         return [null, ctx];
     }
 
