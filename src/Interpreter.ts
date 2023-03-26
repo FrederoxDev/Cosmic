@@ -1,4 +1,3 @@
-import { FunctionDeclaration } from "typescript";
 import { Context } from "./Context";
 import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, LoopStatement, MemberAssign, MemberExpression, Program, StatementCommon, StructDefStatement, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
 import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
@@ -107,7 +106,7 @@ export class Interpreter {
             }
 
             if (exportedEnum !== undefined) {
-                console.log("Export enums not implemented");
+                ctx.setEnum(importId, exportedEnum)
                 continue;
             }
 
@@ -263,10 +262,12 @@ export class Interpreter {
         const symbolTableValue = ctx.getSymbol<any>(node.value);
         const structsValue = ctx.getStructType(node.value);
         const methodsValue = ctx.getMethod(node.value);
+        const enumValue = ctx.getEnum(node.value);
 
         if (symbolTableValue !== undefined) return [symbolTableValue, ctx];
         if (structsValue !== undefined) return [structsValue, ctx];
         if (methodsValue !== undefined) return [methodsValue, ctx];
+        if (enumValue !== undefined) return [methodsValue, ctx];
 
         throw this.runtimeErrorCode(`${node.value} does not exist in this current context`, node.start, node.end)
     }
@@ -403,7 +404,7 @@ export class Interpreter {
             return this.number({ value: index }, ctx);
         }
 
-        throw Interpreter.internalError(`Member expression logic does not exist for ${object.constructor.name}`)
+        throw Interpreter.internalError(`Member expression logic does not exist for ${object}`)
     }
 
     private memberAssign = async (node: MemberAssign, ctx: Context): Promise<[any, Context]> => {

@@ -1,4 +1,5 @@
 import { CosmicFunction } from "./Struct/CosmicFunction";
+import { NativeEnum } from "./Struct/NativeEnum";
 import { NativeFunction } from "./Struct/NativeFunction";
 import { StructType } from "./Struct/StructType";
 
@@ -8,6 +9,7 @@ export class Context {
     stack: any;
     structs: any;
     methods: any;
+    enums: any;
 
     constructor(contextToCopy: Context | null = null) {
         this.symbolTable = {};
@@ -15,6 +17,7 @@ export class Context {
         this.stack = [];
         this.structs = contextToCopy?.structs ?? {};
         this.methods = contextToCopy?.methods ?? {};
+        this.enums = contextToCopy?.enums ?? {};
     }
 
     // Storing structs
@@ -24,6 +27,14 @@ export class Context {
 
     getStructType(id: string): StructType | undefined {
         return this.structs[id];
+    }
+
+    setEnum(id: string, enumType: NativeEnum): void {
+        this.enums[id] = enumType;
+    }
+
+    getEnum(id: string): NativeEnum | undefined {
+        return this.enums[id];
     }
 
     // Storing Methods
