@@ -7,6 +7,8 @@ import { StructType } from "./src/Struct/StructType";
 import { NativeFunction } from "./src/Struct/NativeFunction";
 import { StructInstance } from "./src/Struct/StructInstance";
 import { NativeEnum } from "./src/Struct/NativeEnum";
+import { getNumberLiteral } from "./src/Primitives/Number"
+import { getStringLiteral } from "./src/Primitives/String"
 // import { Interpreter } from "./src/Interpreter/Interpreter";
 // import { Context } from "./src/Interpreter/Context";
 // import { NumberStruct } from "./src/Interpreter/Structs/NumberStruct";
@@ -68,6 +70,14 @@ const Vec3 = new StructType("Vec3", [
         return [instance, context];
     }),
 
+    new NativeFunction("ToString", async (interpreter, context, start, end, args): Promise<[any, Context]> => {
+        var selfRef = context.stack.pop() as StructInstance;
+        const x = getNumberLiteral(selfRef.selfCtx.getSymbol("x"));
+        const y = getNumberLiteral(selfRef.selfCtx.getSymbol("y"));
+        const z = getNumberLiteral(selfRef.selfCtx.getSymbol("z"));
+        return interpreter.string({ value: `(${x}, ${y}, ${z})` }, context);
+    }),
+
     new NativeFunction("Modify", async (interpreter, context, start, end, args): Promise<[any, Context]> => {
         var selfRef = context.stack.pop() as StructInstance;
         if (!(selfRef instanceof StructInstance)) throw Interpreter.internalError("Modify can only be ran on an instance of a Vec3")
@@ -89,18 +99,36 @@ const globals = new Context()
 globals.setStructType("Vec3", Vec3);
 // globals.setSymbol("Status", Status)
 
-globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx, start, end, args) => {
-    var args = args.map((arg: any) => {
-        if (arg instanceof StructInstance) {
-            if (["String", "Number", "Boolean"].includes(arg.structType.id))
-                return arg.selfCtx.getProtected("value")
+globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx: Context, start, end, args) => {
+    const stringArgs: string[] = []
 
-            else {
-                return `[Struct ${arg.structType.id}]`
-            }
-        } else throw new Error("Cannot log")
-    })
-    console.warn(">", ...args)
+    for (var i = 0; i < args.length; i++) {
+        const arg = args[i]
+        // Catch case if its trying to print something that isnt a struct
+        if (!(arg instanceof StructInstance)) {
+            stringArgs.push(`[Unknown: ${args[i].constructor.type}]`)
+            continue;
+        }
+
+        // The Struct Implements ToString so print out the stringified version
+        if (arg.hasImplementedMethod("ToString")) {
+            const func = arg.getImplementedMethod("ToString");
+            ctx.stack.push(arg)
+            var [value, ctx]: [StructInstance, Context] = await func.onCall(interpreter, ctx, start, end, []);
+            
+            if (value.structType.id !== "String") throw interpreter.runtimeErrorCode(
+                `Struct '${arg.structType.id}' implements 'ToString', which is expected to return type String, instead got ${value.structType.id}`,
+                start,
+                end
+            )
+
+            stringArgs.push(getStringLiteral(value));
+            continue;
+        }
+
+        stringArgs.push(`[Struct ${arg.structType.id}]`);
+    }
+    console.log(">", ...stringArgs)
 
     return [null, ctx];
 }))
