@@ -96,14 +96,17 @@ const Status = new NativeEnum("Status", ["Ok", "Err"])
 
 /* Interpreting */
 const globals = new Context()
-globals.setStructType("Vec3", Vec3);
-// globals.setSymbol("Status", Status)
 
 globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx: Context, start, end, args) => {
     const stringArgs: string[] = []
 
     for (var i = 0; i < args.length; i++) {
         const arg = args[i]
+        if (arg instanceof NativeFunction) {
+            stringArgs.push(`[NativeFunction ${arg.id}]`);
+            continue;
+        }
+
         // Catch case if its trying to print something that isnt a struct
         if (!(arg instanceof StructInstance)) {
             stringArgs.push(`[Unknown: ${args[i].constructor.type}]`)
@@ -133,7 +136,7 @@ globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx: Cont
     return [null, ctx];
 }))
 
-const interpreter = new Interpreter(input);
+const interpreter = new Interpreter(input, [Vec3], [Status]);
 
 console.time("execute-program")
 interpreter.findTraverseFunc(ast, globals).catch(e => {

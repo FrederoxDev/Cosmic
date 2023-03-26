@@ -5,7 +5,8 @@ import { Field } from "./Interpreter/Primitives/Struct";
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
 
-export type Program = { entryPoint: FunctionDefStatement, functions: FunctionDefStatement[], structs: StructDefStatement[] } & StatementCommon
+export type Program = { entryPoint: FunctionDefStatement, functions: FunctionDefStatement[], structs: StructDefStatement[], imports: Import[] } & StatementCommon
+export type Import = { id: Identifier } & StatementCommon;
 
 /* Parser return types */
 export type StatementCommon = { type: string, start: number, end: number };
@@ -96,7 +97,8 @@ export class Parser {
         var start: number = this.tokens[0].start;
         var entryPoint: FunctionDefStatement | null = null;
         var functions: FunctionDefStatement[] = [];
-        var structs: StructDefStatement[] = []
+        var structs: StructDefStatement[] = [];
+        var imports: Import[] = [];
         var end: number = 0;
 
         while (this.tokens[0].value !== "endOfFile") {
@@ -118,6 +120,10 @@ export class Parser {
                 const struct = this.StructDefStatement(token);
                 structs.push(struct);
             }
+            else if (token.value === "import") {
+                const importStmt = this.ImportStatement(token); 
+                imports.push(importStmt);
+            }
             else {
                 throw this.parseError(`(${token.type}: ${token.value}) is not supported at the top level`, token.start, token.end)
             }
@@ -130,8 +136,22 @@ export class Parser {
             entryPoint,
             functions,
             structs,
+            imports,
             start,
             end,
+        }
+    }
+
+    private ImportStatement = (_token: LexerToken | null): Import => {
+        const importKeyword = _token ?? this.tokens.shift()!;
+        const identifier = this.tokens.shift()!;
+        this.expectSymbol(null, ";")
+
+        return {
+            id: identifier,
+            type: "Import",
+            start: importKeyword.start,
+            end: identifier.end
         }
     }
 
@@ -173,7 +193,7 @@ export class Parser {
     private Statement = (_token: LexerToken | null): StatementCommon => {
         const token = _token ?? this.tokens.shift()!;
 
-        if (["if", "fn", "struct", "impl", "while", "loop"].includes(token.value)) return this.CompoundStatement(token);
+        if (["if", "while", "loop"].includes(token.value)) return this.CompoundStatement(token);
 
         if (["let", "return", "break"].includes(token.value)) {
             let stmt = this.SimpleStatement(token)

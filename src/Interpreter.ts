@@ -15,12 +15,16 @@ export class Interpreter {
     errStart: number;
     errEnd: number;
     errMessage: string;
+    exportedStructs: StructType[];
+    exportedEnums: NativeEnum[];
 
-    constructor(code: string) {
+    constructor(code: string, exportedStructs: StructType[], exportedEnums: NativeEnum[]) {
         this.code = code
         this.errStart = 0;
         this.errEnd = 0;
         this.errMessage = "";
+        this.exportedEnums = exportedEnums;
+        this.exportedStructs = exportedStructs;
     }
 
     //#region Error Reporting
@@ -92,7 +96,28 @@ export class Interpreter {
     //#endregion
 
     private program = async (node: Program, ctx: Context): Promise<[any, Context]> => {
-        // ...Add all non main methods into the context;
+        for (var i = 0; i < node.imports.length; i++) {
+            const importId = node.imports[i].id.value;
+            const exportedStruct = this.exportedStructs.find(s => s.id === importId);
+            const exportedEnum = this.exportedEnums.find(s => s.id === importId);
+
+            if (exportedStruct !== undefined) {
+                ctx.setStructType(importId, exportedStruct);
+                continue;
+            }
+
+            if (exportedEnum !== undefined) {
+                console.log("Export enums not implemented");
+                continue;
+            }
+
+            throw this.runtimeErrorCode(
+                `Failed to import '${importId}'`,
+                node.imports[i].start,
+                node.imports[i].end
+            )
+        }
+
         for (var i = 0; i < node.functions.length; i++) {
             var [_, ctx] = await this.findTraverseFunc(node.functions[i], ctx);
         }
