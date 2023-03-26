@@ -55,6 +55,10 @@ if (parseError) {
 writeFileSync('./err/ast.json', JSON.stringify(ast, null, 2), { flag: "w" });
 
 const Vec3 = new StructType("Vec3", [
+    { name: "x", type: "Number" },
+    { name: "y", type: "Number" },
+    { name: "z", type: "Number" },
+], [
     new NativeFunction("From", async (interpreter, context, start, end, args): Promise<[any, Context]> => {
         const instance = new StructInstance(Vec3);
         instance.selfCtx.setSymbol("x", args[0]);
@@ -88,7 +92,12 @@ globals.setStructType("Vec3", Vec3);
 globals.setMethod("log", new NativeFunction("log", async (interpreter, ctx, start, end, args) => {
     var args = args.map((arg: any) => {
         if (arg instanceof StructInstance) {
-            return arg.selfCtx.getProtected("value")
+            if (["String", "Number", "Boolean"].includes(arg.structType.id))
+                return arg.selfCtx.getProtected("value")
+
+            else {
+                return `[Struct ${arg.structType.id}]`
+            }
         } else throw new Error("Cannot log")
     })
     console.warn(">", ...args)

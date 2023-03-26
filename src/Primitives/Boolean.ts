@@ -7,7 +7,7 @@ export const getBooleanLiteral = (struct: StructInstance) => {
     return struct.selfCtx.getProtected<boolean>("value");
 }
 
-export const Boolean = new StructType("Boolean", [
+export const Boolean = new StructType("Boolean", [], [
     new NativeFunction("Not", async (interpreter, ctx, start, end, args) => {
         const helper = new NativeFunctionHelper(interpreter, args, 1, start, end);
         const self = getBooleanLiteral(helper.expectType(0, "Boolean"))

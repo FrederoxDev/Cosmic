@@ -5,7 +5,7 @@ import { Field } from "./Interpreter/Primitives/Struct";
 
 type LexerToken = { type: string; value: string; start: number; end: number; };
 
-export type Program = { entryPoint: FunctionDefStatement, functions: FunctionDefStatement[] } & StatementCommon
+export type Program = { entryPoint: FunctionDefStatement, functions: FunctionDefStatement[], structs: StructDefStatement[] } & StatementCommon
 
 /* Parser return types */
 export type StatementCommon = { type: string, start: number, end: number };
@@ -129,6 +129,7 @@ export class Parser {
             type: "Program",
             entryPoint,
             functions,
+            structs,
             start,
             end,
         }

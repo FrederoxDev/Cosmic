@@ -1,6 +1,6 @@
 import { FunctionDeclaration } from "typescript";
 import { Context } from "./Context";
-import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, LoopStatement, MemberAssign, MemberExpression, Program, StatementCommon, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
+import { Assign, BinaryExpression, BlockStatement, BreakStatement as BreakExpression, CallExpression, FunctionDefStatement, Identifier, IfStatement, LoopStatement, MemberAssign, MemberExpression, Program, StatementCommon, StructDefStatement, StructMethodAccessor, UnaryExpression, VariableDeclaration, WhileStatement } from "./Parser";
 import { Boolean, getBooleanLiteral } from "./Primitives/Boolean";
 import { Number } from "./Primitives/Number";
 import { String } from "./Primitives/String";
@@ -78,6 +78,8 @@ export class Interpreter {
             { type: "Assign", func: this.assign },
             { type: "BreakExpression", func: this.breakExpression },
             { type: "FunctionDeclaration", func: this.functionDeclaration },
+            { type: "StructDeclaration", func: this.structDeclaration },
+            { type: "StructExpression", func: this.structExpression },
             { type: "Program", func: this.program}
         ];
         const type = types.find(type => type.type == node.type);
@@ -93,6 +95,10 @@ export class Interpreter {
         // ...Add all non main methods into the context;
         for (var i = 0; i < node.functions.length; i++) {
             var [_, ctx] = await this.findTraverseFunc(node.functions[i], ctx);
+        }
+
+        for (var i = 0; i < node.structs.length; i++) {
+            var [_, ctx] = await this.findTraverseFunc(node.structs[i], ctx);
         }
 
         // Execute the main function
@@ -322,6 +328,30 @@ export class Interpreter {
         ctx.stack.push({ node: struct, value: node.struct });
 
         return [nativeFunc, ctx];
+    }
+
+    private structDeclaration = async (node: StructDefStatement, ctx: Context): Promise<[any, Context]> => {
+        const struct = new StructType(node.id, node.fields, []);
+        ctx.setStructType(node.id, struct);
+        return [null, ctx];
+    }
+
+    private structExpression = async (node: any, ctx: Context): Promise<[any, Context]> => {
+        var [structType, ctx]: [StructType, Context] = await this.findTraverseFunc(node.id, ctx);
+        const instance = new StructInstance(structType);
+        
+        for (var i = 0; i < structType.fields.length; i++) {
+            const idx = node.fields.findIndex((n: any) => n[0].value === structType.fields[i].name)
+            if (idx === -1) throw this.runtimeErrorCode(
+                `Expected field '${structType.fields[i].name}'`,
+                node.start,
+                node.end
+            )
+            var [value, ctx] = await this.findTraverseFunc(node.fields[idx][1], ctx);
+            instance.selfCtx.setSymbol(structType.fields[i].name, value);
+        }
+        
+        return [instance, ctx];
     }
 
     private memberExpression = async (node: MemberExpression, ctx: Context): Promise<[any, Context]> => {

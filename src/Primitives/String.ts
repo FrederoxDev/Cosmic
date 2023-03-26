@@ -7,7 +7,7 @@ export const getStringLiteral = (struct: StructInstance) => {
     return struct.selfCtx.getProtected<string>("value");
 }
 
-export const String = new StructType("String", [
+export const String = new StructType("String", [], [
     new NativeFunction("Add", async (interpreter, ctx, start, end, args) => {
         const helper = new NativeFunctionHelper(interpreter, args, 2, start, end);
         const left = getStringLiteral(helper.expectType(0, "String"));

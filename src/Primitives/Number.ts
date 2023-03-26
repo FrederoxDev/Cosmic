@@ -7,7 +7,7 @@ export const getNumberLiteral = (struct: StructInstance) => {
     return struct.selfCtx.getProtected<number>("value");
 }
 
-export const Number = new StructType("Number", [
+export const Number = new StructType("Number", [], [
     new NativeFunction("Add", async (interpreter, ctx, start, end, args) => {
         const helper = new NativeFunctionHelper(interpreter, args, 2, start, end);
         const left = getNumberLiteral(helper.expectType(0, "Number"));
