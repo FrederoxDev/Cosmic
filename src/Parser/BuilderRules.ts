@@ -7,6 +7,11 @@ import { RuleSet } from "./RuleSet.ts";
 
 export class Sequence implements Rule {
     rules: [string | null, Rule][] = [];
+    typeName: string;
+
+    constructor(typeName: string | undefined = undefined) {
+        this.typeName = typeName ?? "Sequence";
+    }
 
     add(identifier: string | null, rule: Rule) {
         this.rules.push([identifier, rule]);
@@ -15,7 +20,7 @@ export class Sequence implements Rule {
 
     matches(ruleSet: RuleSet, tokens: LexerToken[]): Result<AstNode, CosmicError> {
         const result: {[key: string]: AstNode} = {};
-        let start: number | null = null;
+        let start: number | undefined = undefined;
         let end: number;
 
         if (this.rules.length === 0) throw new Error("Unable to have sequence with no rules!");
@@ -34,23 +39,21 @@ export class Sequence implements Rule {
             }
             const unwrapped = match.unwrap()
 
-            if (start === null) start = unwrapped.start;
+            if (start === undefined) start = unwrapped.start;
             end = unwrapped.end;
             
-            if (name != null) {
+            if (name != undefined) {
                 result[name] = unwrapped;
             }
 
             critical = true;
         }
 
-        //@ts-ignore Start will always be number
         return Ok({
-            type: "Sequence",
-            res: result,
-            start,
-            //@ts-ignore End will always be number
-            end
+            type: this.typeName,
+            start: start!,
+            end: end!,
+            ...result
         });
     }
     
@@ -206,20 +209,20 @@ export class BinaryOp implements Rule {
         const match = this.rule.matches(ruleSet, tokens);
         if (!match.isOk) return match;
 
-        const result = match.unwrap() as unknown as {res: {lhs: AstNode, rhs_matches: TZeroOrMoreOf}};
-        if (result.res.rhs_matches.matches.length === 0) return Ok(result.res.lhs);
-        let lhs: BinOpNode | AstNode = result.res.lhs;
+        const result = match.unwrap() as unknown as { lhs: AstNode, rhs_matches: TZeroOrMoreOf};
+        if (result.rhs_matches.matches.length === 0) return Ok(result.lhs);
+        let lhs: BinOpNode | AstNode = result.lhs;
 
-        for (let i = 0; i < result.res.rhs_matches.matches.length; i++) {
-            const match = result.res.rhs_matches.matches[i] as unknown as {res: { op: SymbolNode, rhs: AstNode }};
+        for (let i = 0; i < result.rhs_matches.matches.length; i++) {
+            const match = result.rhs_matches.matches[i] as unknown as { op: SymbolNode, rhs: AstNode };
 
             lhs = {
                 type: "BinOpNode",
                 start: lhs.start,
-                end: match.res.rhs.end,
+                end: match.rhs.end,
                 lhs,
-                op: match.res.op.value,
-                rhs: match.res.rhs
+                op: match.op,
+                rhs: match.rhs
             }
         }
 

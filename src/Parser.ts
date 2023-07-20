@@ -32,7 +32,13 @@ const groupedExpr = new Group(
 const primary = new AnyOf(numberLiteral, stringLiteral, booleanLiteral, groupedExpr);
 ruleSet.addRule("primary", primary);
 
-const unary = new ReferenceTo("primary");
+// ( "!" | "-" ) unary | primary
+const unary = new AnyOf(
+    new Sequence("UnaryOpNode")
+        .add("op", new AnyOf(new SymbolRule("!"), new SymbolRule("-")))
+        .add("rhs", new ReferenceTo("unary")),
+    new ReferenceTo("primary")
+);
 ruleSet.addRule("unary", unary);
 
 const factor = new BinaryOp(new ReferenceTo("unary"), ["*", "/"]);

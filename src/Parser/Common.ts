@@ -20,4 +20,4 @@ export type UnionNode = StringNode | NumberNode | BooleanNode | BinOpNode;
 // Utility
 export type TZeroOrMoreOf = AstNode & { type: "ZeroOrMoreOf", matches: AstNode[] }
 export type SymbolNode = AstNode & { type: "SymbolNode", value: string };
-export type BinOpNode = AstNode & { type: "BinOpNode", lhs: AstNode, op: string, rhs: AstNode }
+export type BinOpNode = AstNode & { type: "BinOpNode", lhs: AstNode, op: AstNode, rhs: AstNode }
