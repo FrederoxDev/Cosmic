@@ -1,0 +1,13 @@
+{
+    "fmt": {
+        "semiColons": true,
+        "options": {
+
+        }
+    },
+    "lint": {
+        "rules": {
+            "exclude": ["no-unused-vars"]
+        }
+    }
+}

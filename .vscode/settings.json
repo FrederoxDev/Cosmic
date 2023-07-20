@@ -1,0 +1,14 @@
+{
+    "deno.enable": true,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        ".github": true,
+        ".vscode": true,
+        "deno.lock": true,
+    }
+}
