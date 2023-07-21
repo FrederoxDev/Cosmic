@@ -10,7 +10,7 @@ export class StringLiteralRule implements Rule {
         const token = tokens.shift()!;
         
         if (token.type === "StringLiteral") return Ok({
-            type: "StringLiteralNode",
+            type: "StringNode",
             value: token.value,
             start: token.start,
             end: token.end,

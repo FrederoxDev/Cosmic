@@ -57,14 +57,14 @@ const expression = new ReferenceTo("equality");
 ruleSet.addRule("expression", expression);
 
 const exprStmt = new AnyOf(
-    new Sequence("ExprStmt")
+    new Sequence("ExprStmtNode")
         .add("expr", new ReferenceTo("expression"))
         .add(null, new SymbolRule(";"))
 )
 ruleSet.addRule("exprStmt", exprStmt);
 
 const printStmt = new AnyOf(
-    new Sequence("PrintStmt")
+    new Sequence("PrintStmtNode")
         .add(null, new IdentifierRule("print"))
         .add("expr", new ReferenceTo("expression"))
         .add(null, new SymbolRule(";"))
@@ -74,7 +74,7 @@ ruleSet.addRule("printStmt", printStmt);
 const declaration = new AnyOf(new ReferenceTo("exprStmt"), new ReferenceTo("printStmt"))
 ruleSet.addRule("declaration", declaration);
 
-const program = new Sequence("Program")
+const program = new Sequence("ProgramNode")
     .add("declarations", new ZeroOrMoreOf(new ReferenceTo("declaration")));
 ruleSet.addRule("program", program);
 

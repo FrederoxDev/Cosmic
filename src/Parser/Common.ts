@@ -17,11 +17,11 @@ export type NumberNode = AstNode & { type: "NumberNode", value: string };
 export type BooleanNode = AstNode & { type: "BooleanNode", value: string }; 
 export type SymbolNode = AstNode & { type: "SymbolNode", value: string };
 export type BinOpNode = AstNode & { type: "BinOpNode", lhs: AstNode, op: AstNode, rhs: AstNode };
-export type ProgramNode = AstNode & { type: "Program", declarations: AstNode[] };
-export type PrintStmt = AstNode & { type: "PrintStmt", expr: AstNode };
-export type ExprStmt = AstNode & { type: "ExprStmt", expr: AstNode };
+export type ProgramNode = AstNode & { type: "ProgramNode", declarations: AstNode[] };
+export type PrintStmtNode = AstNode & { type: "PrintStmtNode", expr: AstNode };
+export type ExprStmtNode = AstNode & { type: "ExprStmtNode", expr: AstNode };
 
-export type UnionNode = StringNode | NumberNode | BooleanNode | SymbolNode | BinOpNode | ProgramNode | PrintStmt | ExprStmt;
+export type UnionNode = StringNode | NumberNode | BooleanNode | SymbolNode | BinOpNode | ProgramNode | PrintStmtNode | ExprStmtNode;
 
 // Utility
 export type TZeroOrMoreOf = AstNode & { type: "ZeroOrMoreOf", matches: AstNode[] }

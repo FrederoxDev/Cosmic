@@ -36,11 +36,25 @@ export function parseToTokens(input: string, debugTokensToFile: boolean): Result
             match = input.slice(position).match(regex);
 
             if (match) {
+                let value: string | number | boolean = match[0];
+
+                if (tokenTypeKeys[i] === "StringLiteral") {
+                    value = value!.substring(1, value.length - 1);
+                }
+
+                if (tokenTypeKeys[i] === "NumberLiteral") {
+                    value = parseFloat(value);
+                }
+
+                if (tokenTypeKeys[i] === "BooleanLiteral") {
+                    value = value === "true";
+                }
+
                 // Add the matched token to the tokens array
                 tokens.push({
                     //@ts-ignore This should be fine in TS
                     type: tokenTypeKeys[i],
-                    value: match[0],
+                    value,
                     start: position,
                     end: position + match[0].length
                 });
@@ -78,6 +92,7 @@ export function parseToTokens(input: string, debugTokensToFile: boolean): Result
 
     const tokensToExclude = ["Whitespace", "InlineComment", "MultiLineComment"]
     const filtered = tokens.filter(token => !tokensToExclude.includes(token.type));
+
     const timeElapsed = performance.now() - start;
 
     if (debugTokensToFile) {
