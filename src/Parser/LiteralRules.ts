@@ -132,3 +132,48 @@ export class SymbolRule implements Rule {
         return `"${this.symbol}"`
     }
 }
+
+export class IdentifierRule implements Rule {
+    identifier: string;
+
+    constructor(identifier: string) {
+        this.identifier = identifier;
+    }
+
+    matches(ruleSet: RuleSet, tokens: LexerToken[]): Result<AstNode, CosmicError> {
+        if (tokens.length === 0) throw new Error("No tokens!");
+        const token = tokens.shift()!;
+
+        if (token.type === "Identifier") {
+            if (token.value === this.identifier) return Ok({
+                type: "Identifier",
+                value: token.value,
+                start: token.start,
+                end: token.end
+            })
+
+            return Err({
+                type: "UnexpectedSymbol",
+                reason: `Expected symbol '${this.identifier}' instead got ${token.value}`,
+                actualToken: token,
+                expectedSymbol: this.identifier,
+                start: token.start,
+                end: token.end,
+                isErrorCritical: false
+            } as UnexpectedSymbol)
+        }
+
+        return Err({
+            type: "UnexpectedToken",
+            reason: `Expected "${this.identifier}" instead got token ${token.type}`,
+            actualToken: token,
+            expectedType: `Symbol`,
+            start: token.start,
+            end: token.end
+        } as UnexpectedToken)
+    }
+
+    toGrammar(ruleSet: RuleSet, depth: number): string {
+        return `"${this.identifier}"`
+    }
+}

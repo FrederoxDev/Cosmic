@@ -19,7 +19,7 @@ export class Sequence implements Rule {
     }
 
     matches(ruleSet: RuleSet, tokens: LexerToken[]): Result<AstNode, CosmicError> {
-        const result: {[key: string]: AstNode} = {};
+        const result: {[key: string]: unknown} = {};
         let start: number | undefined = undefined;
         let end: number;
 
@@ -43,7 +43,10 @@ export class Sequence implements Rule {
             end = unwrapped.end;
             
             if (name != undefined) {
-                result[name] = unwrapped;
+                if (match.unwrap().type === "ZeroOrMoreOf") {
+                    result[name] = (match.unwrap() as TZeroOrMoreOf).matches;
+                }
+                else result[name] = unwrapped;
             }
 
             critical = true;
@@ -182,8 +185,8 @@ export class Group implements Rule {
         const match = this.rule.matches(ruleSet, tokens);
         if (!match.isOk) return match;
 
-        const unwrapped = match.unwrap() as unknown as { res: { expr: AstNode } };
-        return Ok(unwrapped.res.expr);
+        const unwrapped = match.unwrap() as unknown as { expr: AstNode };
+        return Ok(unwrapped.expr);
     }
 
     toGrammar(ruleSet: RuleSet, depth: number): string {
@@ -209,12 +212,12 @@ export class BinaryOp implements Rule {
         const match = this.rule.matches(ruleSet, tokens);
         if (!match.isOk) return match;
 
-        const result = match.unwrap() as unknown as { lhs: AstNode, rhs_matches: TZeroOrMoreOf};
-        if (result.rhs_matches.matches.length === 0) return Ok(result.lhs);
+        const result = match.unwrap() as unknown as { lhs: AstNode, rhs_matches: AstNode[]};
+        if (result.rhs_matches.length === 0) return Ok(result.lhs);
         let lhs: BinOpNode | AstNode = result.lhs;
 
-        for (let i = 0; i < result.rhs_matches.matches.length; i++) {
-            const match = result.rhs_matches.matches[i] as unknown as { op: SymbolNode, rhs: AstNode };
+        for (let i = 0; i < result.rhs_matches.length; i++) {
+            const match = result.rhs_matches[i] as unknown as { op: SymbolNode, rhs: AstNode };
 
             lhs = {
                 type: "BinOpNode",

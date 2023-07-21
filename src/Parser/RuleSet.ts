@@ -14,7 +14,7 @@ export class RuleSet {
     }
 
     rulesToStr(startingDepth = 0): string {
-        const keys = Object.keys(this.rules);
+        const keys = Object.keys(this.rules).reverse();
         const grammar = []
 
         for (let i = 0; i < keys.length; i++) {

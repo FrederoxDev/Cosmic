@@ -11,13 +11,17 @@ export interface Rule {
 
 export interface AstNode { type: string, start: number, end: number }
 
+// Literal Types
 export type StringNode = AstNode & { type: "StringNode", value: string };
 export type NumberNode = AstNode & { type: "NumberNode", value: string };
 export type BooleanNode = AstNode & { type: "BooleanNode", value: string }; 
+export type SymbolNode = AstNode & { type: "SymbolNode", value: string };
+export type BinOpNode = AstNode & { type: "BinOpNode", lhs: AstNode, op: AstNode, rhs: AstNode };
+export type ProgramNode = AstNode & { type: "Program", declarations: AstNode[] };
+export type PrintStmt = AstNode & { type: "PrintStmt", expr: AstNode };
+export type ExprStmt = AstNode & { type: "ExprStmt", expr: AstNode };
 
-export type UnionNode = StringNode | NumberNode | BooleanNode | BinOpNode;
+export type UnionNode = StringNode | NumberNode | BooleanNode | SymbolNode | BinOpNode | ProgramNode | PrintStmt | ExprStmt;
 
 // Utility
 export type TZeroOrMoreOf = AstNode & { type: "ZeroOrMoreOf", matches: AstNode[] }
-export type SymbolNode = AstNode & { type: "SymbolNode", value: string };
-export type BinOpNode = AstNode & { type: "BinOpNode", lhs: AstNode, op: AstNode, rhs: AstNode }

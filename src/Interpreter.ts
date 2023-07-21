@@ -1,13 +1,17 @@
-import { AstNode, BinOpNode, NumberNode, UnionNode } from "./Parser/Common.ts";
+import { AstNode, BinOpNode, ExprStmt, NumberNode, PrintStmt, ProgramNode, SymbolNode, UnionNode } from "./Parser/Common.ts";
 
-// deno-lint-ignore no-explicit-any
-type NodeInterpreter = (node: AstNode) => any;
+
+type NodeInterpreter = (node: AstNode) => unknown;
 
 const interpreters: {[key in UnionNode['type']]: NodeInterpreter} = {
     NumberNode: interpretNumberNode as NodeInterpreter,
     StringNode: interpretNotImplemented as NodeInterpreter,
     BooleanNode: interpretNotImplemented as NodeInterpreter,
+    SymbolNode: interpretNotImplemented as NodeInterpreter,
     BinOpNode: interpretBinOpNode as NodeInterpreter,
+    Program: interpretProgramNode as NodeInterpreter,
+    ExprStmt: interpretExprStmt as NodeInterpreter,
+    PrintStmt: interpretPrintStmt as NodeInterpreter
 }
 
 function interpretNotImplemented(node: AstNode) {
@@ -19,22 +23,41 @@ function interpretNumberNode(node: NumberNode) {
 }
 
 function interpretBinOpNode(node: BinOpNode) {
-    switch (node.op) {
+    const lhs = interpret(node.lhs) as number;
+    const rhs = interpret(node.rhs) as number;
+
+    switch ((node.op as SymbolNode).value) {
         case "+":
-            return interpret(node.lhs) + interpret(node.rhs);
+            return lhs + rhs;
 
         case "-":
-            return interpret(node.lhs) - interpret(node.rhs);
+            return lhs - rhs;
 
         case "*":
-            return interpret(node.lhs) * interpret(node.rhs);
+            return lhs * rhs;
 
         case "/":
-            return interpret(node.lhs) / interpret(node.rhs);
+            return lhs / rhs;
     }
 }
 
+function interpretProgramNode(node: ProgramNode) {
+    const declarations = node.declarations;
+
+    for (let i = 0; i < declarations.length; i++) {
+        interpret(declarations[i]);
+    }
+}
+
+function interpretPrintStmt(node: PrintStmt) {
+    console.log(interpret(node.expr));
+}
+
+export function interpretExprStmt(node: ExprStmt) {
+    return interpret(node.expr);
+}
+
 export function interpret(ast: AstNode) {
-    const interpreter = interpreters[ast.type as keyof typeof interpreters];
+    const interpreter = interpreters[ast.type as keyof typeof interpreters] ?? interpretNotImplemented(ast);
     return interpreter(ast);
 }

@@ -2,6 +2,7 @@ import { bold, dim, magenta, red } from "https://deno.land/std@0.194.0/fmt/color
 import { CosmicError } from "./Common/GenericError.ts";
 import { parseToTokens } from "./Lexer.ts";
 import { tokensToAST } from "./Parser.ts";
+import { interpret } from "./Interpreter.ts";
 
 const input = Deno.readTextFileSync("./input.cos");
 
@@ -50,3 +51,5 @@ if (!ast.isOk) {
     reportIssue(error.type, error.reason, error.start, error.end);
     console.log("critical:", error.isErrorCritical)
 }
+
+const interpretedRes = interpret(ast.unwrap());

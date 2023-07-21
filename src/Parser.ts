@@ -4,7 +4,7 @@ import { LexerToken } from "./Lexer.ts";
 import { BinaryOp, Group, ZeroOrMoreOf } from "./Parser/BuilderRules.ts";
 import { Sequence, AnyOf, ReferenceTo } from "./Parser/BuilderRules.ts";
 import { AstNode } from "./Parser/Common.ts";
-import { BooleanLiteralRule, NumberLiteralRule, StringLiteralRule, SymbolRule } from "./Parser/LiteralRules.ts";
+import { BooleanLiteralRule, IdentifierRule, NumberLiteralRule, StringLiteralRule, SymbolRule } from "./Parser/LiteralRules.ts";
 import { RuleSet } from "./Parser/RuleSet.ts";
 
 // expression     → equality ;
@@ -17,7 +17,7 @@ import { RuleSet } from "./Parser/RuleSet.ts";
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
 //                | "(" expression ")" ;
 
-const ruleSet = new RuleSet();
+export const ruleSet = new RuleSet();
 const stringLiteral = new StringLiteralRule();
 const numberLiteral = new NumberLiteralRule();
 const booleanLiteral = new BooleanLiteralRule();
@@ -56,6 +56,28 @@ ruleSet.addRule("equality", equality)
 const expression = new ReferenceTo("equality");
 ruleSet.addRule("expression", expression);
 
+const exprStmt = new AnyOf(
+    new Sequence("ExprStmt")
+        .add("expr", new ReferenceTo("expression"))
+        .add(null, new SymbolRule(";"))
+)
+ruleSet.addRule("exprStmt", exprStmt);
+
+const printStmt = new AnyOf(
+    new Sequence("PrintStmt")
+        .add(null, new IdentifierRule("print"))
+        .add("expr", new ReferenceTo("expression"))
+        .add(null, new SymbolRule(";"))
+)
+ruleSet.addRule("printStmt", printStmt);
+
+const declaration = new AnyOf(new ReferenceTo("exprStmt"), new ReferenceTo("printStmt"))
+ruleSet.addRule("declaration", declaration);
+
+const program = new Sequence("Program")
+    .add("declarations", new ZeroOrMoreOf(new ReferenceTo("declaration")));
+ruleSet.addRule("program", program);
+
 export function tokensToAST(
     tokens: LexerToken[], 
     writeASTtoFile: boolean, 
@@ -63,7 +85,7 @@ export function tokensToAST(
     writeGrammarToFile: boolean
 ): Result<AstNode, CosmicErrorBase> {
     const start = performance.now();
-    const res = expression.matches(ruleSet, tokens);
+    const res = program.matches(ruleSet, tokens);
     const timeElapsed = performance.now() - start;
 
     if (!res.isOk) {
