@@ -1,1 +1,1 @@
-print "soup" + "f";
+print 1 + 2;

@@ -9,5 +9,8 @@
         "rules": {
             "exclude": ["no-unused-vars"]
         }
+    },
+    "tasks": {
+        "run": "deno run --allow-read --allow-write src/Shell.ts"
     }
 }
