@@ -1,28 +1,20 @@
+import { Context } from "./Interpreter/Context.ts";
 import { AstNode } from "./Parser/Common.ts";
-// import { BinOp, ExprStmt, Node, PrintStmt, Program } from "./Interpreter/Visit.ts";
-// import { Boolean, Number, String } from "./Interpreter/Literals.ts";
+import { BinOp, Node, PrintStmt, Program, Number } from "./Interpreter/Node.ts";
 
-// type NodeTypes = UnionNode['type'];
+const interpreters: {[key: string]: new() => Node<AstNode>} = {
+    ProgramNode: Program,
+    PrintStmtNode: PrintStmt,
+    BinOpNode: BinOp,
+    NumberNode: Number
+}
 
+export function interpret(ast: AstNode, context: Context): unknown {
+    const interpreter = interpreters[ast.type];
 
-// const interpreters: {[key in NodeTypes]?: new () => Node<AstNode>} = {
-//     NumberNode: Number,
-//     StringNode: String,
-//     BooleanNode: Boolean,
-//     ProgramNode: Program,
-//     PrintStmtNode: PrintStmt,
-//     ExprStmtNode: ExprStmt,
-//     BinOpNode: BinOp
-// }
+    if (interpreter === undefined) {
+        throw new Error(`Node type: '${ast.type}' is not supported yet!`)        
+    }
 
-// export function interpret(ast: AstNode) {
-//     const interpreter = interpreters[ast.type as keyof typeof interpreters];
-//     if (interpreter === undefined) 
-//         throw new Error(`Node type: '${ast.type}' is not supported yet!`)
-    
-//     return new interpreter().visit(ast);
-// }
-
-export function interpret(ast: AstNode) {
-    throw new Error(`Node type: '${ast.type}' is not supported yet!`)
+    return new interpreter().visit(ast, context);
 }
