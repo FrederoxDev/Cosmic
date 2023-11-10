@@ -9,7 +9,7 @@ const tokenTypes = {
     BooleanLiteral: /^((true|false))/,
     NumberLiteral: /^(-?\d+(\.\d+)?)/,
     Identifier: /^([a-zA-Z_0-9]\w*)/,
-    Symbol: /(\/|\*|;|-|\!|\+|>=|>|<=|<|==|!=|\(|\))/
+    Symbol: /(\/|\*|;|-|\+|>=|>|<=|<|==|!=|\!\(|\))/
 }
 
 const tokenTypeKeys: string[] = Object.keys(tokenTypes);

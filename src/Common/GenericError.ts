@@ -25,4 +25,8 @@ export type IllegalCharacter = CosmicErrorBase & {
     illegalChar: string
 }
 
+export type RuntimeError = CosmicErrorBase & {
+    type: "RuntimeError"
+}
+
 export type CosmicError = UnexpectedToken | IllegalCharacter | UnexpectedSymbol;

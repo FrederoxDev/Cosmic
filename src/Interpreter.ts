@@ -1,15 +1,18 @@
 import { Context } from "./Interpreter/Context.ts";
 import { AstNode } from "./Parser/Common.ts";
-import { BinOp, Node, PrintStmt, Program, Number } from "./Interpreter/Node.ts";
+import { BinOp, Node, PrintStmt, Program, Number, String } from "./Interpreter/Node.ts";
+import { Result } from "./Common/Result.ts";
+import { RuntimeError } from "./Common/GenericError.ts";
 
 const interpreters: {[key: string]: new() => Node<AstNode>} = {
     ProgramNode: Program,
     PrintStmtNode: PrintStmt,
     BinOpNode: BinOp,
-    NumberNode: Number
+    NumberNode: Number,
+    StringNode: String
 }
 
-export function interpret(ast: AstNode, context: Context): unknown {
+export function interpret(ast: AstNode, context: Context): Result<unknown, RuntimeError> {
     const interpreter = interpreters[ast.type];
 
     if (interpreter === undefined) {
