@@ -1,5 +1,6 @@
 import { RuntimeError } from "../../Common/GenericError.ts";
 import { Err, Ok, Result } from "../../Common/Result.ts";
+import { SymbolNode } from "../../Parser/Common.ts";
 import { PositionInfo } from "../PositionInfo.ts";
 import { Type } from "../Type.ts";
 
@@ -19,7 +20,7 @@ export class NumberType extends Type {
             return Ok(new NumberType(info, this.value + (rhs as NumberType).value))    
         }
         
-        return Err(this.runtimeError(`${this.name} does not implement operator + for ${rhs.name}`));
+        return this.rhsNotImplemented(rhs, "+");
     }
 
     sub(rhs: Type): Result<unknown, RuntimeError> {
@@ -29,6 +30,6 @@ export class NumberType extends Type {
             return Ok(new NumberType(info, this.value - (rhs as NumberType).value))    
         }
         
-        return Err(this.runtimeError(`${this.name} does not implement operator - for ${rhs.name}`));
+        return this.rhsNotImplemented(rhs, "-");
     }
 }

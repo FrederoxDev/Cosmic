@@ -1,10 +1,11 @@
 import { RuntimeError } from "../Common/GenericError.ts";
 import { Err, Ok, Result } from "../Common/Result.ts";
 import { interpret } from "../Interpreter.ts";
-import { AstNode, BinOpNode, PrintStmtNode, ProgramNode, NumberNode, StringNode } from "../Parser/Common.ts";
+import { AstNode, BinOpNode, PrintStmtNode, ProgramNode, NumberNode, StringNode, BooleanNode, UnaryOpNode } from "../Parser/Common.ts";
 import { Context } from "./Context.ts";
 import { PositionInfo } from "./PositionInfo.ts";
 import { Type } from "./Type.ts";
+import { BooleanType } from "./Types/BooleanType.ts";
 import { NumberType } from "./Types/NumberType.ts";
 import { StringType } from "./Types/StringType.ts";
 
@@ -61,6 +62,17 @@ export class BinOp extends Node<BinOpNode> {
     }
 }
 
+export class UnaryOp extends Node<UnaryOpNode> {
+    visit(node: UnaryOpNode, context: Context): Result<unknown, RuntimeError> {
+        const rhs = interpret(node.rhs, context) as Result<Type, RuntimeError>;
+        if (!rhs.isOk) return rhs;
+
+        if (node.op.value == "!") return rhs.unwrap().not(node.op);
+
+        throw new Error(`UnaryOp does not implement operator '${node.op.value}'`);
+    }
+}
+
 export class Number extends Node<NumberNode> {
     visit(node: NumberNode, context: Context): Result<unknown, RuntimeError> {
         const info = new PositionInfo(node.start, node.end);
@@ -72,5 +84,12 @@ export class String extends Node<StringNode> {
     visit(node: StringNode, context: Context): Result<unknown, RuntimeError> {
         const info = new PositionInfo(node.start, node.end);
         return Ok(new StringType(info, node.value));
+    }
+}
+
+export class Boolean extends Node<BooleanNode> {
+    visit(node: BooleanNode, context: Context): Result<unknown, RuntimeError> {
+        const info = new PositionInfo(node.start, node.end);
+        return Ok(new BooleanType(info, node.value));
     }
 }

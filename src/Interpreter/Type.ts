@@ -11,7 +11,7 @@ export abstract class Type {
         this.info = info;
     }
 
-    runtimeError(reason: string): RuntimeError {
+    protected runtimeError(reason: string): RuntimeError {
         return {
             isErrorCritical: true,
             reason: reason,
@@ -21,43 +21,55 @@ export abstract class Type {
         }
     }
 
+    rhsNotImplemented(rhs: Type, operator: string) {
+        return Err(this.runtimeError(`'${this.name}' does not implement 'operator${operator}' for '${rhs.name}'`));
+    }
+
+    operatorNotImplemented(operator: string) {
+        return Err(this.runtimeError(`'${this.name}' does not implement 'operator${operator}'`))
+    }
+
     add(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator +`));
+        return this.operatorNotImplemented("+");
     }
 
     sub(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator -`));
+        return this.operatorNotImplemented("-");
     }
 
     div(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator /`));
+        return this.operatorNotImplemented("/");
     }
 
     mul(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator *`));
+        return this.operatorNotImplemented("*");
     }
 
     gt(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator >`));
+        return this.operatorNotImplemented(">");
     }
 
     gte(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator >=`));
+        return this.operatorNotImplemented(">=");
     }
 
     lt(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator <`));
+        return this.operatorNotImplemented("<");
     }
 
     lte(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator <=`));
+        return this.operatorNotImplemented("<=");
     }
 
     ee(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator ==`));
+        return this.operatorNotImplemented("==");
     }
 
     ne(rhs: Type): Result<unknown, RuntimeError> {
-        return Err(this.runtimeError(`${this.name} does not implement operator !=`));
+        return this.operatorNotImplemented("!=");
+    }
+
+    not(operator: PositionInfo) {
+        return this.operatorNotImplemented("!");
     }
 }

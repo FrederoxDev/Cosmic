@@ -19,6 +19,6 @@ export class StringType extends Type {
             return Ok(new StringType(info, this.value + (rhs as StringType).value))    
         }
         
-        return Err(this.runtimeError(`${this.name} does not implement operator + for ${rhs.name}`));
+        return this.rhsNotImplemented(rhs, "+");
     }
 }
